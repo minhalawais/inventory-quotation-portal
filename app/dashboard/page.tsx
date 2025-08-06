@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth"
 import DashboardStats from "@/components/dashboard/dashboard-stats"
 import SalesChart from "@/components/dashboard/sales-chart"
 import RecentQuotations from "@/components/dashboard/recent-quotations"
-import LowStockAlert from "@/components/dashboard/low-stock-alert"
+import OutOfStockSummary from "@/components/dashboard/out-of-stock-summary" // New import
 
 export default async function Dashboard() {
   const session = await getServerSession(authOptions)
@@ -34,7 +34,7 @@ export default async function Dashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
         <SalesChart />
-        <LowStockAlert />
+        <OutOfStockSummary /> {/* Replaced LowStockAlert with OutOfStockSummary */}
       </div>
 
       <RecentQuotations />
