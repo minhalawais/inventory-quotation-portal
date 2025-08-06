@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Plus, Minus, FileText, Search, User, Phone, MapPin, Package } from "lucide-react"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import Image from "next/image"
 
 interface Product {
   _id: string
@@ -18,12 +19,15 @@ interface Product {
   quantity: number
   productId: string
   group: string
+  imagePaths?: string[]
+  imagePath?: string // Keep for backward compatibility
 }
 
 interface QuotationItem {
   productId: string
   quantity: number
   price: number
+  productImage?: string
 }
 
 interface QuotationFormProps {
@@ -85,7 +89,7 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
   }
 
   const addItem = () => {
-    setItems([...items, { productId: "", quantity: 1, price: 0 }])
+    setItems([...items, { productId: "", quantity: 1, price: 0, productImage: "" }])
   }
 
   const removeItem = (index: number) => {
@@ -100,6 +104,10 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
       const product = products.find((p) => p._id === value)
       if (product) {
         updatedItems[index].price = product.price
+        // Get the main product image (first image from imagePaths or fallback to imagePath)
+        const mainImage =
+          product.imagePaths && product.imagePaths.length > 0 ? product.imagePaths[0] : product.imagePath || ""
+        updatedItems[index].productImage = mainImage
       }
     }
 
@@ -191,7 +199,7 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
             variant="outline"
             role="combobox"
             aria-expanded={searchOpen === index}
-            className="w-full justify-between text-left font-normal input-modern mobile-input"
+            className="w-full justify-between text-left font-normal input-modern mobile-input bg-transparent"
           >
             {selectedProduct ? (
               <span className="truncate">
@@ -209,28 +217,46 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
             <CommandList>
               <CommandEmpty>No products found.</CommandEmpty>
               <CommandGroup>
-                {filteredProducts.map((product) => (
-                  <CommandItem
-                    key={product._id}
-                    value={product.name}
-                    onSelect={() => {
-                      onSelect(product._id)
-                      setSearchOpen(false)
-                      setSearchTerm("")
-                    }}
-                  >
-                    <div className="flex flex-col w-full">
-                      <div className="flex justify-between items-center">
-                        <span className="font-medium truncate">{product.name}</span>
-                        <span className="text-sm text-primary font-semibold">PKR{product.price}</span>
+                {filteredProducts.map((product) => {
+                  const mainImage =
+                    product.imagePaths && product.imagePaths.length > 0
+                      ? product.imagePaths[0]
+                      : product.imagePath || ""
+
+                  return (
+                    <CommandItem
+                      key={product._id}
+                      value={product.name}
+                      onSelect={() => {
+                        onSelect(product._id)
+                        setSearchOpen(false)
+                        setSearchTerm("")
+                      }}
+                    >
+                      <div className="flex items-center gap-3 w-full">
+                        <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                          <Image
+                            src={mainImage || "/placeholder.svg?height=48&width=48"}
+                            alt={product.name}
+                            width={48}
+                            height={48}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="flex flex-col flex-1 min-w-0">
+                          <div className="flex justify-between items-center">
+                            <span className="font-medium truncate">{product.name}</span>
+                            <span className="text-sm text-primary font-semibold">PKR{product.price}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-xs text-muted-foreground">
+                            <span>ID: {product.productId}</span>
+                            <span>Stock: {product.quantity}</span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex justify-between items-center text-xs text-muted-foreground">
-                        <span>ID: {product.productId}</span>
-                        <span>Stock: {product.quantity}</span>
-                      </div>
-                    </div>
-                  </CommandItem>
-                ))}
+                    </CommandItem>
+                  )
+                })}
               </CommandGroup>
             </CommandList>
           </Command>
@@ -304,104 +330,132 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
       </Card>
 
       {/* Products Card */}
-<Card className="card-modern">
-  <CardHeader className="pb-4">
-    <CardTitle className="flex items-center gap-3 text-secondary">
-      <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-        <Package className="h-5 w-5 text-primary" />
-      </div>
-      Products & Services
-    </CardTitle>
-  </CardHeader>
-  <CardContent className="mobile-spacing">
-    {items.map((item, index) => (
-      <div key={index} className="bg-muted/30 rounded-xl p-4 sm:p-6 space-y-4 border">
-        <div className="flex justify-between items-center">
-          <span className="text-sm font-semibold text-secondary">Item #{index + 1}</span>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => removeItem(index)}
-            className="text-destructive hover:text-destructive hover:bg-destructive/10 mobile-button"
-          >
-            <Minus className="h-4 w-4" />
-          </Button>
-        </div>
+      <Card className="card-modern">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-3 text-secondary">
+            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+              <Package className="h-5 w-5 text-primary" />
+            </div>
+            Products & Services
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="mobile-spacing">
+          {items.map((item, index) => {
+            const selectedProduct = products.find((p) => p._id === item.productId)
 
-        <div className="space-y-4">
-          <div>
-            <Label className="text-sm font-medium text-secondary">Product</Label>
-            <ProductSearchCombobox
-              index={index}
-              value={item.productId}
-              onSelect={(value) => updateItem(index, "productId", value)}
-            />
+            return (
+              <div key={index} className="bg-muted/30 rounded-xl p-4 sm:p-6 space-y-4 border">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-semibold text-secondary">Item #{index + 1}</span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => removeItem(index)}
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10 mobile-button"
+                  >
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-sm font-medium text-secondary">Product</Label>
+                    <ProductSearchCombobox
+                      index={index}
+                      value={item.productId}
+                      onSelect={(value) => updateItem(index, "productId", value)}
+                    />
+                  </div>
+
+                  {/* Show selected product with image */}
+                  {selectedProduct && (
+                    <div className="bg-white rounded-lg p-4 border border-primary/20">
+                      <div className="flex items-center gap-4">
+                        <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                          <Image
+                            src={item.productImage || "/placeholder.svg?height=64&width=64"}
+                            alt={selectedProduct.name}
+                            width={64}
+                            height={64}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-secondary truncate">{selectedProduct.name}</h4>
+                          <p className="text-sm text-muted-foreground">ID: {selectedProduct.productId}</p>
+                          <p className="text-sm text-primary font-semibold">
+                            PKR {selectedProduct.price.toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium text-secondary">Quantity</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={item.quantity}
+                        onChange={(e) => updateItem(index, "quantity", Number.parseInt(e.target.value))}
+                        className="input-modern mobile-input"
+                      />
+                    </div>
+
+                    <div>
+                      <Label className="text-sm font-medium text-secondary">Price (PKR)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={item.price}
+                        onChange={(e) => updateItem(index, "price", Number.parseFloat(e.target.value))}
+                        className="input-modern mobile-input"
+                      />
+                    </div>
+                  </div>
+
+                  {item.productId && item.quantity > 0 && item.price > 0 && (
+                    <div className="bg-primary/5 border border-primary/20 p-4 rounded-lg">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium text-secondary">Item Total:</span>
+                        <span className="text-lg font-bold text-primary">
+                          PKR {(item.quantity * item.price).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+
+          {items.length === 0 && (
+            <div className="text-center py-12 bg-muted/30 rounded-xl border-2 border-dashed border-gray-300">
+              <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold text-secondary mb-2">No items added</h3>
+              <p className="text-sm text-muted-foreground">Click "Add Item" to start building your quotation.</p>
+            </div>
+          )}
+
+          <div className="flex justify-center mt-4">
+            <Button onClick={addItem} className="btn-primary mobile-button">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Item
+            </Button>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label className="text-sm font-medium text-secondary">Quantity</Label>
-              <Input
-                type="number"
-                min="1"
-                value={item.quantity}
-                onChange={(e) => updateItem(index, "quantity", Number.parseInt(e.target.value))}
-                className="input-modern mobile-input"
-              />
-            </div>
-
-            <div>
-              <Label className="text-sm font-medium text-secondary">Price (PKR)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={item.price}
-                onChange={(e) => updateItem(index, "price", Number.parseFloat(e.target.value))}
-                className="input-modern mobile-input"
-              />
-            </div>
-          </div>
-
-          {item.productId && item.quantity > 0 && item.price > 0 && (
-            <div className="bg-primary/5 border border-primary/20 p-4 rounded-lg">
+          {items.length > 0 && (
+            <div className="gradient-primary p-6 rounded-xl text-white mt-4">
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-secondary">Item Total:</span>
-                <span className="text-lg font-bold text-primary">
-                  PKR {(item.quantity * item.price).toFixed(2)}
-                </span>
+                <span className="text-lg font-semibold">Grand Total:</span>
+                <span className="text-3xl font-bold">PKR {calculateTotal().toFixed(2)}</span>
               </div>
             </div>
           )}
-        </div>
-      </div>
-    ))}
-
-    {items.length === 0 && (
-      <div className="text-center py-12 bg-muted/30 rounded-xl border-2 border-dashed border-gray-300">
-        <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-        <h3 className="text-lg font-semibold text-secondary mb-2">No items added</h3>
-        <p className="text-sm text-muted-foreground">Click "Add Item" to start building your quotation.</p>
-      </div>
-    )}
-
-    <div className="flex justify-center mt-4">
-      <Button onClick={addItem} className="btn-primary mobile-button">
-        <Plus className="mr-2 h-4 w-4" />
-        Add Item
-      </Button>
-    </div>
-
-    {items.length > 0 && (
-      <div className="gradient-primary p-6 rounded-xl text-white mt-4">
-        <div className="flex justify-between items-center">
-          <span className="text-lg font-semibold">Grand Total:</span>
-          <span className="text-3xl font-bold">PKR {calculateTotal().toFixed(2)}</span>
-        </div>
-      </div>
-    )}
-  </CardContent>
-</Card>
+        </CardContent>
+      </Card>
 
       {/* Action Buttons */}
       <div className="flex flex-col sm:flex-row gap-4 pb-6">

@@ -21,6 +21,11 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Product not found" }, { status: 404 })
     }
 
+    // Filter out purchaseRate if user is not a manager
+    if (session.user.role !== "manager" && product.purchaseRate) {
+      delete product.purchaseRate
+    }
+
     return NextResponse.json(product)
   } catch (error) {
     console.error("Product GET error:", error)
@@ -36,27 +41,29 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     const body = await request.json()
-    const { group, subGroup, productId, name, quantity, price, imagePath } = body
+    const { group, subGroup, productId, name, price, purchaseRate, imagePaths, isOutOfStock } = body
 
     const client = await clientPromise
     const db = client.db("inventory_portal")
     const products = db.collection("products")
 
-    const result = await products.updateOne(
-      { _id: new ObjectId(params.id) },
-      {
-        $set: {
-          group,
-          subGroup,
-          productId,
-          name,
-          quantity,
-          price,
-          imagePath,
-          updatedAt: new Date(),
-        },
-      },
-    )
+    const updateData: any = {
+      group,
+      subGroup,
+      productId,
+      name,
+      price,
+      imagePaths: imagePaths || [],
+      isOutOfStock: isOutOfStock || false,
+      updatedAt: new Date(),
+    }
+
+    // Only add purchaseRate if it's provided and user is manager
+    if (purchaseRate !== undefined && session.user.role === "manager") {
+      updateData.purchaseRate = purchaseRate
+    }
+
+    const result = await products.updateOne({ _id: new ObjectId(params.id) }, { $set: updateData })
 
     if (result.matchedCount === 0) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 })

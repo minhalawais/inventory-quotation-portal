@@ -6,12 +6,26 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { Upload, Loader2, ArrowLeft, Package, Tag, Hash, DollarSign, ImageIcon, Check, X } from "lucide-react"
+import {
+  Loader2,
+  ArrowLeft,
+  Package,
+  Tag,
+  Hash,
+  DollarSign,
+  ImageIcon,
+  Check,
+  X,
+  ShoppingCart,
+  AlertTriangle,
+} from "lucide-react"
 import { useSession } from "next-auth/react"
 import { logActivity } from "@/lib/logger"
+import MultipleImageUpload from "@/components/ui/multiple-image-upload"
 
 export default function ProductForm() {
   const [formData, setFormData] = useState({
@@ -19,10 +33,11 @@ export default function ProductForm() {
     subGroup: "",
     productId: "",
     name: "",
-    quantity: "",
     price: "",
+    purchaseRate: "",
+    isOutOfStock: false,
   })
-  const [image, setImage] = useState<File | null>(null)
+  const [images, setImages] = useState<File[]>([])
   const [loading, setLoading] = useState(false)
   const [lastProductId, setLastProductId] = useState("")
   const [isProductIdUnique, setIsProductIdUnique] = useState<boolean | null>(null)
@@ -30,6 +45,9 @@ export default function ProductForm() {
   const router = useRouter()
   const { toast } = useToast()
   const { data: session } = useSession()
+
+  // Check if user is manager to show purchase rate field
+  const isManager = session?.user?.role === "manager"
 
   useEffect(() => {
     fetchLastProductId()
@@ -57,7 +75,7 @@ export default function ProductForm() {
 
   const checkProductIdUniqueness = async () => {
     if (!formData.productId) return
-    
+
     setCheckingId(true)
     try {
       const response = await fetch(`/api/products/check-id?id=${formData.productId}`)
@@ -77,7 +95,7 @@ export default function ProductForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     // Prevent submission if product ID is not unique
     if (isProductIdUnique === false) {
       toast({
@@ -91,21 +109,28 @@ export default function ProductForm() {
     setLoading(true)
 
     try {
-      let imagePath = ""
+      let imagePaths: string[] = []
 
-      if (image) {
-        const imageFormData = new FormData()
-        imageFormData.append("file", image)
+      // Upload multiple images
+      if (images.length > 0) {
+        const uploadPromises = images.map(async (image) => {
+          const imageFormData = new FormData()
+          imageFormData.append("file", image)
 
-        const uploadResponse = await fetch("/api/upload", {
-          method: "POST",
-          body: imageFormData,
+          const uploadResponse = await fetch("/api/upload", {
+            method: "POST",
+            body: imageFormData,
+          })
+
+          if (uploadResponse.ok) {
+            const uploadData = await uploadResponse.json()
+            return uploadData.path
+          }
+          return null
         })
 
-        if (uploadResponse.ok) {
-          const uploadData = await uploadResponse.json()
-          imagePath = uploadData.path
-        }
+        const results = await Promise.all(uploadPromises)
+        imagePaths = results.filter((path) => path !== null)
       }
 
       const response = await fetch("/api/products", {
@@ -115,9 +140,9 @@ export default function ProductForm() {
         },
         body: JSON.stringify({
           ...formData,
-          quantity: Number.parseInt(formData.quantity),
           price: Number.parseFloat(formData.price),
-          imagePath,
+          purchaseRate: formData.purchaseRate ? Number.parseFloat(formData.purchaseRate) : undefined,
+          imagePaths,
         }),
       })
 
@@ -274,35 +299,49 @@ export default function ProductForm() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="quantity" className="text-sm font-medium text-secondary">
-                      Initial Stock Quantity
+                    <Label htmlFor="name" className="text-sm font-medium text-secondary">
+                      Product Name
                     </Label>
                     <Input
-                      id="quantity"
-                      type="number"
-                      min="0"
-                      value={formData.quantity}
-                      onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       required
                       className="input-modern mobile-input"
-                      placeholder="Enter quantity"
+                      placeholder="Enter descriptive product name"
                     />
                   </div>
                 </div>
+              </div>
+            </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="name" className="text-sm font-medium text-secondary">
-                    Product Name
-                  </Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
-                    className="input-modern mobile-input"
-                    placeholder="Enter descriptive product name"
-                  />
+            {/* Stock Status */}
+            <div className="bg-orange/5 rounded-xl p-6 border border-orange/20">
+              <h3 className="text-lg font-semibold text-secondary mb-4 flex items-center gap-3">
+                <div className="w-8 h-8 bg-orange/10 rounded-lg flex items-center justify-center">
+                  <AlertTriangle className="h-4 w-4 text-orange-600" />
                 </div>
+                Stock Status
+              </h3>
+
+              <div className="flex items-center space-x-3 p-4 bg-white rounded-lg border">
+                <Checkbox
+                  id="isOutOfStock"
+                  checked={formData.isOutOfStock}
+                  onCheckedChange={(checked) => setFormData({ ...formData, isOutOfStock: checked as boolean })}
+                  disabled={!isManager}
+                />
+                <div className="flex-1">
+                  <Label htmlFor="isOutOfStock" className="text-sm font-medium cursor-pointer">
+                    Mark as Out of Stock
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Check this box if the product is currently out of stock
+                  </p>
+                </div>
+                {!isManager && (
+                  <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full">Manager Only</span>
+                )}
               </div>
             </div>
 
@@ -315,89 +354,117 @@ export default function ProductForm() {
                 Pricing Information
               </h3>
 
-              <div className="space-y-2">
-                <Label htmlFor="price" className="text-sm font-medium text-secondary">
-                  Unit Price (PKR)
-                </Label>
-                <Input
-                  id="price"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                  required
-                  className="input-modern mobile-input"
-                  placeholder="Enter price per unit"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Set the selling price for this product in Pakistani Rupees
-                </p>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="price" className="text-sm font-medium text-secondary">
+                    Selling Price (PKR)
+                  </Label>
+                  <Input
+                    id="price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.price}
+                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                    required
+                    className="input-modern mobile-input"
+                    placeholder="Enter selling price per unit"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Set the selling price for this product in Pakistani Rupees
+                  </p>
+                </div>
+
+                {/* Purchase Rate - Only visible to managers */}
+                {isManager && (
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="purchaseRate"
+                      className="text-sm font-medium text-secondary flex items-center gap-2"
+                    >
+                      <ShoppingCart className="h-4 w-4" />
+                      Purchase Rate (PKR)
+                      <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full">Manager Only</span>
+                    </Label>
+                    <Input
+                      id="purchaseRate"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.purchaseRate}
+                      onChange={(e) => setFormData({ ...formData, purchaseRate: e.target.value })}
+                      className="input-modern mobile-input"
+                      placeholder="Enter purchase rate per unit"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Cost price at which this product was purchased (optional)
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Product Image */}
+            {/* Product Images */}
             <div className="bg-muted/30 rounded-xl p-6 border">
               <h3 className="text-lg font-semibold text-secondary mb-4 flex items-center gap-3">
                 <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
                   <ImageIcon className="h-4 w-4 text-gray-600" />
                 </div>
-                Product Image
+                Product Images
               </h3>
 
-              <div className="space-y-2">
-                <Label htmlFor="image" className="text-sm font-medium text-secondary">
-                  Upload Product Image (Optional)
-                </Label>
-                <div className="flex items-center space-x-3">
-                  <Input
-                    id="image"
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => setImage(e.target.files?.[0] || null)}
-                    className="flex-1 input-modern mobile-input"
-                  />
-                  <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                    <Upload className="h-4 w-4 text-gray-600" />
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Upload a clear image of the product. Supported formats: JPG, PNG, WebP
-                </p>
-              </div>
+              <MultipleImageUpload images={images} onImagesChange={setImages} maxImages={5} />
             </div>
 
             {/* Summary Card */}
-            {formData.name && formData.price && formData.quantity && (
+            {formData.name && formData.price && (
               <div className="gradient-primary rounded-xl p-6 text-white">
                 <h3 className="text-lg font-semibold mb-4">Product Summary</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
                   <div>
                     <p className="text-primary-foreground/80">Product Name</p>
                     <p className="font-semibold">{formData.name}</p>
                   </div>
                   <div>
-                    <p className="text-primary-foreground/80">Initial Stock</p>
-                    <p className="font-semibold">{formData.quantity} units</p>
+                    <p className="text-primary-foreground/80">Stock Status</p>
+                    <p className="font-semibold">{formData.isOutOfStock ? "Out of Stock" : "In Stock"}</p>
                   </div>
                   <div>
-                    <p className="text-primary-foreground/80">Total Value</p>
-                    <p className="font-semibold">
-                      PKR{" "}
-                      {(
-                        Number.parseFloat(formData.price || "0") * Number.parseInt(formData.quantity || "0")
-                      ).toLocaleString()}
-                    </p>
+                    <p className="text-primary-foreground/80">Selling Price</p>
+                    <p className="font-semibold">PKR {Number.parseFloat(formData.price || "0").toLocaleString()}</p>
                   </div>
                 </div>
+
+                {/* Show profit margin if both prices are available and user is manager */}
+                {isManager && formData.purchaseRate && formData.price && (
+                  <div className="mt-4 pt-4 border-t border-white/20">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-primary-foreground/80">Purchase Rate</p>
+                        <p className="font-semibold">PKR {Number.parseFloat(formData.purchaseRate).toLocaleString()}</p>
+                      </div>
+                      <div>
+                        <p className="text-primary-foreground/80">Profit Margin</p>
+                        <p className="font-semibold">
+                          {(
+                            ((Number.parseFloat(formData.price) - Number.parseFloat(formData.purchaseRate)) /
+                              Number.parseFloat(formData.price)) *
+                            100
+                          ).toFixed(1)}
+                          %
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row gap-4 pt-4">
-              <Button 
-                type="submit" 
-                className="btn-primary mobile-button flex-1 sm:flex-none" 
+              <Button
+                type="submit"
+                className="btn-primary mobile-button flex-1 sm:flex-none"
                 disabled={loading || isProductIdUnique === false}
               >
                 {loading ? (

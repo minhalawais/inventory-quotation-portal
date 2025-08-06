@@ -8,6 +8,7 @@ interface QuotationItem {
   quantity: number
   price: number
   productName?: string
+  productImage?: string
 }
 
 interface Quotation {
@@ -34,14 +35,35 @@ async function getQuotation(id: string): Promise<Quotation | null> {
       return null
     }
 
-    // Get product details for each item
+    // Get product details for each item including images
     const itemsWithDetails = await Promise.all(
       quotation.items.map(async (item: any) => {
-        const product = await products.findOne({ _id: new ObjectId(item.productId) })
-        return {
-          ...item,
-          productName: product?.name || "Unknown Product",
-          productId: product?.productId || "N/A",
+        try {
+          const product = await products.findOne({ _id: new ObjectId(item.productId) })
+          if (product) {
+            // Get the first image from imagePaths array or fallback to imagePath
+            const productImage =
+              product.imagePaths && product.imagePaths.length > 0 ? product.imagePaths[0] : product.imagePath || null
+
+            return {
+              ...item,
+              productId: product.productId || "N/A",
+              productName: product.name || "Unknown Product",
+              productImage: productImage,
+            }
+          }
+          return {
+            ...item,
+            productName: "Unknown Product",
+            productImage: null,
+          }
+        } catch (error) {
+          console.error("Error fetching product details:", error)
+          return {
+            ...item,
+            productName: "Unknown Product",
+            productImage: null,
+          }
         }
       }),
     )

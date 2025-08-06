@@ -1,5 +1,5 @@
 {
-  "name": "my-v0-project",
+  "name": "Quotation Portal",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -48,6 +48,7 @@
     "@sparticuz/chromium": "^137.0.1",
     "autoprefixer": "^10.4.20",
     "bcryptjs": "latest",
+    "canvas": "^3.1.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "1.0.4",
@@ -58,6 +59,7 @@
     "gcp-metadata": "latest",
     "input-otp": "1.4.1",
     "jspdf": "^3.0.1",
+    "jspdf-autotable": "^5.0.2",
     "kerberos": "latest",
     "lucide-react": "^0.454.0",
     "mongodb": "latest",

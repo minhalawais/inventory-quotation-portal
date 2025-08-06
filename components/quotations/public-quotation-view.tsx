@@ -5,12 +5,14 @@ import { Download, Phone, MapPin, Calendar, Clock, FileText, ArrowLeft, Building
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { useToast } from "@/hooks/use-toast"
+import Image from "next/image"
 
 interface QuotationItem {
   productId: string
   quantity: number
   price: number
   productName?: string
+  productImage?: string
 }
 
 interface Quotation {
@@ -257,6 +259,7 @@ export default function PublicQuotationView({ quotation }: PublicQuotationViewPr
                 <table className="table-modern">
                   <thead>
                     <tr>
+                      <th className="w-16">Image</th>
                       <th>Product ID</th>
                       <th>Description</th>
                       <th className="text-center">Qty</th>
@@ -267,6 +270,17 @@ export default function PublicQuotationView({ quotation }: PublicQuotationViewPr
                   <tbody>
                     {quotation.items.map((item, index) => (
                       <tr key={index}>
+                        <td>
+                          <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden">
+                            <Image
+                              src={item.productImage || "/placeholder.svg?height=48&width=48"}
+                              alt={item.productName || "Product"}
+                              width={48}
+                              height={48}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        </td>
                         <td className="font-mono text-sm font-bold text-primary">{item.productId}</td>
                         <td className="font-medium">{item.productName || "Product"}</td>
                         <td className="text-center font-semibold">{item.quantity}</td>
@@ -284,14 +298,23 @@ export default function PublicQuotationView({ quotation }: PublicQuotationViewPr
               <div className="sm:hidden bg-white border-x border-b rounded-b-xl divide-y">
                 {quotation.items.map((item, index) => (
                   <div key={index} className="p-6">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="flex-1">
+                    <div className="flex gap-4 mb-4">
+                      <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                        <Image
+                          src={item.productImage || "/placeholder.svg?height=64&width=64"}
+                          alt={item.productName || "Product"}
+                          width={64}
+                          height={64}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
                         <p className="font-mono text-sm font-bold text-primary mb-1">{item.productId}</p>
                         <p className="font-semibold text-secondary">{item.productName || "Product"}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm text-muted-foreground">Quantity</p>
-                        <p className="font-bold text-lg">{item.quantity}</p>
+                        <div className="text-right mt-2">
+                          <p className="text-sm text-muted-foreground">Quantity</p>
+                          <p className="font-bold text-lg">{item.quantity}</p>
+                        </div>
                       </div>
                     </div>
 

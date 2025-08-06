@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
     const client = await clientPromise
     const db = client.db("inventory_portal")
     const quotations = db.collection("quotations")
+    const products = db.collection("products")
 
     let query = {}
     if (session.user.role === "rider") {
@@ -29,9 +30,34 @@ export async function GET(request: NextRequest) {
       cursor = cursor.limit(Number.parseInt(limit))
     }
 
-    const result = await cursor.toArray()
+    const quotationsData = await cursor.toArray()
 
-    return NextResponse.json(result)
+    // Enrich quotations with product details
+    const enrichedQuotations = await Promise.all(
+      quotationsData.map(async (quotation) => {
+        const itemsWithDetails = await Promise.all(
+          quotation.items.map(async (item: any) => {
+            const product = await products.findOne({ _id: new ObjectId(item.productId) })
+            const mainImage =
+              product?.imagePaths && product.imagePaths.length > 0 ? product.imagePaths[0] : product?.imagePath || ""
+
+            return {
+              ...item,
+              productName: product?.name || "Unknown Product",
+              productId: product?.productId || "N/A",
+              productImage: item.productImage || mainImage,
+            }
+          }),
+        )
+
+        return {
+          ...quotation,
+          items: itemsWithDetails,
+        }
+      }),
+    )
+
+    return NextResponse.json(enrichedQuotations)
   } catch (error) {
     console.error("Quotations API error:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })

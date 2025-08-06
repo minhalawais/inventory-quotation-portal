@@ -24,6 +24,15 @@ export const metadata: Metadata = {
     address: false,
     telephone: false,
   },
+  icons: {
+    icon: '/icon.png',
+    shortcut: '/icon.png',
+    apple: '/icon.png', // For Apple devices
+    other: {
+      rel: 'icon',
+      url: '/icon.png', // Modern browsers
+    },
+  },
   viewport: {
     width: "device-width",
     initialScale: 1,

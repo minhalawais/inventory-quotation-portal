@@ -18,16 +18,17 @@ import {
   Package,
   DollarSign,
 } from "lucide-react"
-import { useState } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { formatPhoneForWhatsApp, generateWhatsAppMessage } from "@/lib/phone-utils"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 
 interface QuotationItem {
   productId: string
   quantity: number
   price: number
   productName?: string
+  productImage?: string
 }
 
 interface Quotation {
@@ -52,7 +53,7 @@ export default function QuotationViewModal({ quotation, isOpen, onClose }: Quota
   const { toast } = useToast()
 
   if (!quotation) return null
-
+  console.log("quotation", quotation);
   const getStatusColor = (status: string) => {
     switch (status) {
       case "sent":
@@ -165,7 +166,7 @@ export default function QuotationViewModal({ quotation, isOpen, onClose }: Quota
             title: `Quotation for ${quotation.customerName}`,
             text: `Please review your quotation from Inventory Portal: ${quotationUrl}`,
             url: quotationUrl,
-          });
+          })
         } else {
           const quotationUrl = `${window.location.origin}/quotations/${quotation._id}`
           await navigator.clipboard.writeText(quotationUrl)
@@ -214,7 +215,7 @@ export default function QuotationViewModal({ quotation, isOpen, onClose }: Quota
                 onClick={handlePreview}
                 size="sm"
                 variant="outline"
-                className="mobile-button flex-shrink-0 hover:bg-primary/5 hover:border-primary/30 hover:text-primary"
+                className="mobile-button flex-shrink-0 hover:bg-primary/5 hover:border-primary/30 hover:text-primary bg-transparent"
               >
                 <Eye className="mr-2 h-4 w-4" />
                 <span className="hidden sm:inline">Preview</span>
@@ -237,7 +238,7 @@ export default function QuotationViewModal({ quotation, isOpen, onClose }: Quota
                 onClick={handleCopyLink}
                 size="sm"
                 variant="outline"
-                className="mobile-button flex-shrink-0 hover:bg-gray-50 hover:border-gray-300"
+                className="mobile-button flex-shrink-0 hover:bg-gray-50 hover:border-gray-300 bg-transparent"
               >
                 <Share2 className="mr-2 h-4 w-4" />
                 <span className="hidden sm:inline">Copy Link</span>
@@ -253,10 +254,10 @@ export default function QuotationViewModal({ quotation, isOpen, onClose }: Quota
               )}
 
               {/* Close Button - Always visible and properly positioned for mobile */}
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={onClose} 
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onClose}
                 className="flex-shrink-0 ml-auto sm:ml-0 bg-white/90 sm:bg-transparent rounded-full p-2 sm:p-0"
               >
                 <X className="h-5 w-5 text-gray-600 sm:text-current" />
@@ -265,7 +266,7 @@ export default function QuotationViewModal({ quotation, isOpen, onClose }: Quota
           </DialogTitle>
         </DialogHeader>
 
-        {/* Rest of the content remains the same */}
+        {/* Rest of the content */}
         <div className="p-4 sm:p-0 space-y-6">
           {/* Header Info Card */}
           <div className="gradient-primary rounded-xl p-6 text-white">
@@ -396,6 +397,7 @@ export default function QuotationViewModal({ quotation, isOpen, onClose }: Quota
               <table className="table-modern">
                 <thead>
                   <tr className="bg-muted/50">
+                    <th className="text-left w-16">Image</th>
                     <th className="text-left">Product ID</th>
                     <th className="text-left">Product Name</th>
                     <th className="text-center">Quantity</th>
@@ -406,6 +408,17 @@ export default function QuotationViewModal({ quotation, isOpen, onClose }: Quota
                 <tbody>
                   {quotation.items.map((item, index) => (
                     <tr key={index} className="hover:bg-muted/30">
+                      <td>
+                        <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden">
+                          <Image
+                            src={item.productImage || "/placeholder.svg?height=48&width=48"}
+                            alt={item.productName || "Product"}
+                            width={48}
+                            height={48}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      </td>
                       <td className="font-mono text-sm font-bold text-primary">{item.productId}</td>
                       <td className="font-medium text-secondary">{item.productName || "Product"}</td>
                       <td className="text-center font-semibold">{item.quantity}</td>
@@ -423,14 +436,23 @@ export default function QuotationViewModal({ quotation, isOpen, onClose }: Quota
             <div className="sm:hidden divide-y">
               {quotation.items.map((item, index) => (
                 <div key={index} className="p-6">
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="flex-1">
+                  <div className="flex gap-4 mb-4">
+                    <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                      <Image
+                        src={item.productImage || "/placeholder.svg?height=64&width=64"}
+                        alt={item.productName || "Product"}
+                        width={64}
+                        height={64}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
                       <p className="font-mono text-sm font-bold text-primary mb-1">{item.productId}</p>
                       <p className="font-semibold text-secondary text-lg">{item.productName || "Product"}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm text-muted-foreground">Quantity</p>
-                      <p className="font-bold text-xl text-secondary">{item.quantity}</p>
+                      <div className="text-right mt-2">
+                        <p className="text-sm text-muted-foreground">Quantity</p>
+                        <p className="font-bold text-xl text-secondary">{item.quantity}</p>
+                      </div>
                     </div>
                   </div>
 

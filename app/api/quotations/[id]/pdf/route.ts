@@ -51,10 +51,13 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 }
 
 // Import the same function from the public route
+// Update the generateReliablePDF function in route.ts
 async function generateReliablePDF(quotation: any, items: any[]): Promise<Buffer> {
   try {
-    // Use jsPDF for reliable PDF generation
+    // Import both jsPDF and the image handling utilities
     const { jsPDF } = await import("jspdf")
+    // @ts-ignore - This is a workaround for jsPDF's lack of TypeScript support for addImage options
+    await import("jspdf-autotable")
 
     // Create new PDF document
     const doc = new jsPDF({
@@ -71,7 +74,7 @@ async function generateReliablePDF(quotation: any, items: any[]): Promise<Buffer
     const secondaryColor = [107, 114, 128] // Gray
     const textColor = [31, 41, 55] // Dark gray
 
-    // Header
+    // Header (same as before)
     doc.setFontSize(24)
     doc.setTextColor(...primaryColor)
     doc.text("Inventory Portal", 105, 25, { align: "center" })
@@ -135,8 +138,8 @@ async function generateReliablePDF(quotation: any, items: any[]): Promise<Buffer
 
     doc.setFontSize(10)
     doc.setTextColor(255, 255, 255) // White text
-    doc.text("Product ID", 22, yPos)
-    doc.text("Description", 55, yPos)
+    doc.text("Image", 22, yPos)
+    doc.text("Description", 45, yPos)
     doc.text("Qty", 120, yPos)
     doc.text("Unit Price", 135, yPos)
     doc.text("Total", 165, yPos)
@@ -147,32 +150,74 @@ async function generateReliablePDF(quotation: any, items: any[]): Promise<Buffer
     doc.setTextColor(...textColor)
     let totalAmount = 0
 
-    items.forEach((item, index) => {
+    for (const [index, item] of items.entries()) {
       const rowTotal = item.quantity * item.price
       totalAmount += rowTotal
 
       // Alternate row background
       if (index % 2 === 0) {
         doc.setFillColor(249, 250, 251) // Light gray
-        doc.rect(20, yPos - 4, 170, 7, "F")
+        doc.rect(20, yPos - 4, 170, 20, "F") // Increased row height for images
       }
 
-      doc.setFontSize(9)
-      doc.text(item.productId.toString(), 22, yPos)
-      doc.text(item.productName.substring(0, 25), 55, yPos) // Truncate long names
-      doc.text(item.quantity.toString(), 122, yPos)
-      doc.text(`PKR ${item.price.toLocaleString()}`, 137, yPos)
-      doc.text(`PKR ${rowTotal.toLocaleString()}`, 167, yPos)
+      // Add product image if available
+     // Update the image fetching part in generateReliablePDF function
+if (item.productImage) {
+  try {
+    // Construct the full URL for the image
+    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    const imageUrl = item.productImage.startsWith('http') 
+      ? item.productImage 
+      : `${baseUrl}${item.productImage}`;
+    
+    const response = await fetch(imageUrl);
+    if (!response.ok) throw new Error('Image fetch failed');
+    
+    const arrayBuffer = await response.arrayBuffer();
+    const base64String = Buffer.from(arrayBuffer).toString('base64');
+    const imageType = imageUrl.split('.').pop()?.toLowerCase() || 'jpeg';
+    
+    // Add image to PDF
+    doc.addImage(`data:image/${imageType};base64,${base64String}`, imageType, 22, yPos - 2, 10, 10);
+  } catch (error) {
+    console.error('Error adding product image:', error);
+    // Fallback to placeholder
+    doc.setFillColor(200, 200, 200);
+    doc.rect(22, yPos - 2, 10, 10, 'F');
+    doc.setTextColor(100, 100, 100);
+    doc.setFontSize(6);
+    doc.text('No Image', 22, yPos + 3);
+    doc.setFontSize(9);
+    doc.setTextColor(...textColor);
+  }
+} else {
+        // Placeholder for no image
+        doc.setFillColor(200, 200, 200)
+        doc.rect(22, yPos - 2, 10, 10, 'F')
+        doc.setTextColor(100, 100, 100)
+        doc.setFontSize(6)
+        doc.text('No Image', 22, yPos + 3)
+        doc.setFontSize(9)
+        doc.setTextColor(...textColor)
+      }
 
-      yPos += 7
+      // Product details
+      doc.text(item.productId.toString(), 35, yPos + 3)
+      doc.text(item.productName.substring(0, 20), 45, yPos + 3) // Truncate long names
+      doc.text(item.quantity.toString(), 122, yPos + 3)
+      doc.text(`PKR ${item.price.toLocaleString()}`, 137, yPos + 3)
+      doc.text(`PKR ${rowTotal.toLocaleString()}`, 167, yPos + 3)
+
+      yPos += 20 // Increased row height
 
       // Check if we need a new page
       if (yPos > 250) {
         doc.addPage()
         yPos = 20
       }
-    })
+    }
 
+    // Rest of the PDF generation remains the same...
     yPos += 10
 
     // Total Section
@@ -257,8 +302,7 @@ async function generateReliablePDF(quotation: any, items: any[]): Promise<Buffer
     return Buffer.from(pdfArrayBuffer)
   } catch (error) {
     console.error("jsPDF generation failed:", error)
-
-    // Ultimate fallback - create a simple text-based PDF
+    // Fallback to simple text PDF
     return createSimpleTextPDF(quotation, items)
   }
 }

@@ -19,10 +19,11 @@ export async function GET(request: NextRequest) {
 
     let query = {}
     if (lowStock === "true") {
-      query = { quantity: { $lte: 10 } }
+      query = { isOutOfStock: true }
     }
 
-    const result = await products.find(query).toArray()
+    // Sort by productId in descending order (assuming higher IDs are newer)
+    const result = await products.find(query).sort({ productId: -1 }).toArray()
 
     return NextResponse.json(result)
   } catch (error) {
@@ -39,23 +40,30 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { group, subGroup, productId, name, quantity, price, imagePath } = body
+    const { group, subGroup, productId, name, price, purchaseRate, imagePaths, isOutOfStock } = body
 
     const client = await clientPromise
     const db = client.db("inventory_portal")
     const products = db.collection("products")
 
-    const result = await products.insertOne({
+    const productData: any = {
       group,
       subGroup,
       productId,
       name,
-      quantity,
       price,
-      imagePath,
+      imagePaths: imagePaths || [],
+      isOutOfStock: isOutOfStock || false,
       createdAt: new Date(),
       updatedAt: new Date(),
-    })
+    }
+
+    // Only add purchaseRate if it's provided and user is manager
+    if (purchaseRate !== undefined && session.user.role === "manager") {
+      productData.purchaseRate = purchaseRate
+    }
+
+    const result = await products.insertOne(productData)
 
     return NextResponse.json({ id: result.insertedId })
   } catch (error) {

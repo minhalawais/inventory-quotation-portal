@@ -3,7 +3,7 @@ import { authOptions } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import ProductList from "@/components/products/product-list"
 import { Button } from "@/components/ui/button"
-import { Plus, Package, BarChart3 } from "lucide-react"
+import { Plus, Package, BarChart3, AlertTriangle } from "lucide-react"
 import Link from "next/link"
 
 export default async function ProductsPage() {
@@ -28,14 +28,22 @@ export default async function ProductsPage() {
             </div>
           </div>
 
-          {session.user.role === "manager" && (
-            <Link href="/products/add">
-              <Button className="btn-primary mobile-button w-full sm:w-auto">
-                <Plus className="mr-2 h-4 w-4" />
-                Add Product
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            <Link href="/out-of-stock" className="w-full sm:w-auto">
+              <Button variant="outline" className="w-full mobile-button">
+                <AlertTriangle className="mr-2 h-4 w-4 text-yellow-600" />
+                Out of Stock
               </Button>
             </Link>
-          )}
+            {session.user.role === "manager" && (
+              <Link href="/products/add" className="w-full sm:w-auto">
+                <Button className="btn-primary mobile-button w-full">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Product
+                </Button>
+              </Link>
+            )}
+          </div>
         </div>
       </div>
 
