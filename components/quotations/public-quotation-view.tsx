@@ -1,7 +1,7 @@
 "use client"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Download, Phone, MapPin, Calendar,Mail , Clock, FileText, ArrowLeft, Building2, Mail, Globe } from "lucide-react"
+import { Download, Phone, MapPin, Calendar, Clock, FileText, ArrowLeft, Building2, Mail, Globe } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { useToast } from "@/hooks/use-toast"
