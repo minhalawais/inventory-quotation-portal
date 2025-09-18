@@ -6,6 +6,7 @@ declare module "next-auth" {
       name: string
       role: string
       allowedIps: string[]
+      status: string
     }
   }
 
@@ -14,11 +15,15 @@ declare module "next-auth" {
     email: string
     name: string
     role: string
+    allowedIps: string[]
+    status: string
   }
 }
 
 declare module "next-auth/jwt" {
   interface JWT {
     role: string
+    allowedIps: string[]
+    status: string
   }
 }
