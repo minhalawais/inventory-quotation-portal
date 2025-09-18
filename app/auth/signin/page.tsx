@@ -58,9 +58,12 @@ export default function SignIn() {
     if (type === "manager") {
       setEmail("admin@inventory.com")
       setPassword("admin123")
-    } else {
+    } else if(type === "rider"){
       setEmail("rider@inventory.com")
       setPassword("rider123")
+    } else{
+      setEmail("p_manager@gmail.com")
+      setPassword("password123")
     }
   }
 
@@ -247,6 +250,10 @@ export default function SignIn() {
                   <div className="flex justify-between items-center p-2 bg-white rounded-lg">
                     <span className="font-medium text-gray-700">Rider:</span>
                     <span className="font-mono text-gray-600">rider@inventory.com</span>
+                  </div>
+                  <div className="flex justify-between items-center p-2 bg-white rounded-lg">
+                    <span className="font-medium text-gray-700">Product Manager:</span>
+                    <span className="font-mono text-gray-600">p_manager@gmail.com</span>
                   </div>
                   <p className="text-center text-gray-600 mt-2">
                     Password for both: <span className="font-mono font-semibold">admin123 / rider123</span>
