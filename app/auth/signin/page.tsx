@@ -54,7 +54,7 @@ export default function SignIn() {
     }
   }
 
-  const fillDemoCredentials = (type: "manager" | "rider") => {
+  const fillDemoCredentials = (type: "manager" | "rider" | "product_manager") => {
     if (type === "manager") {
       setEmail("admin@inventory.com")
       setPassword("admin123")
@@ -230,6 +230,23 @@ export default function SignIn() {
                         <span className="text-xs font-bold text-purple-600">R</span>
                       </div>
                       <span className="font-medium">Rider Demo</span>
+                    </div>
+                    <span className="text-xs text-gray-500">Limited Access</span>
+                  </div>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => fillDemoCredentials("product_manager")}
+                  className="w-full h-12 hover:bg-purple-50 hover:border-purple-300 hover:text-purple-700 rounded-xl border-gray-300"
+                  disabled={loading}
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center">
+                        <span className="text-xs font-bold text-purple-600">R</span>
+                      </div>
+                      <span className="font-medium">Product Manager Demo</span>
                     </div>
                     <span className="text-xs text-gray-500">Limited Access</span>
                   </div>
