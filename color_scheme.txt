@@ -1,0 +1,37 @@
+Colors:
+
+Primary: #2563EB (buttons, CTAs).
+
+Secondary: #1E3A8A (headers).
+
+Success: #10B981, Error: #EF4444.
+
+Neutrals: #F9FAFB (bg), #4B5563 (text).
+
+Fonts: Use Inter (sans-serif fallback).
+
+Headings: 600-700 weight.
+
+Body: 400 weight, #4B5563.
+
+Buttons:
+
+Primary: Blue bg, white text, rounded corners.
+
+Hover: Darker shade (#1D4ED8).
+
+Cards: White bg, subtle shadow, 1px #E5E7EB border.
+
+Inputs: Light border, focus ring (#93C5FD).
+
+Tables: Striped rows, hover highlights.
+
+Alerts: Left border (green/red) + light bg.
+
+Spacing: Consistent padding (1rem sections, 0.5rem gaps).
+
+Mobile-first: Responsive grids/flex.
+
+Dark Mode (optional):
+
+Dark bg (#111827), light text (#E5E7EB).
