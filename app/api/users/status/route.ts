@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth"
 import clientPromise from "@/lib/mongodb"
 import { determineUserStatus } from "@/lib/status-utils"
 
+export const dynamic = "force-dynamic"
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)

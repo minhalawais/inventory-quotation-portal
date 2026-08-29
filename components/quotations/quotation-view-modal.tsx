@@ -20,7 +20,7 @@ import {
   Mail 
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { formatPhoneForWhatsApp, generateWhatsAppMessage } from "@/lib/phone-utils"
+import { buildWhatsAppShareUrl, openWhatsAppShare } from "@/lib/phone-utils"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import {
@@ -145,29 +145,36 @@ export default function QuotationViewModal({ quotation, isOpen, onClose }: Quota
 
   const handleWhatsAppShare = async () => {
     try {
-      const formattedPhone = formatPhoneForWhatsApp(quotation.customerPhone)
       const quotationUrl = `${window.location.origin}/quotations/${quotation._id}`
-      const message = generateWhatsAppMessage(quotation, quotationUrl)
-      const whatsappUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`
+      const whatsappUrl = buildWhatsAppShareUrl(quotation.customerPhone, quotation, quotationUrl)
 
+      openWhatsAppShare(whatsappUrl)
+    } catch (error) {
+      toast({
+        title: "Unable to open WhatsApp",
+        description: error instanceof Error ? error.message : "Check the customer's phone number and try again",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
       const response = await fetch(`/api/quotations/${quotation._id}/send`, {
         method: "POST",
       })
 
       if (response.ok) {
-        window.open(whatsappUrl, "_blank")
         toast({
-          title: "Success",
-          description: "WhatsApp opened with quotation link and status updated to sent",
+          title: "WhatsApp message ready",
+          description: "The quotation message opened and the status was updated to sent",
         })
       } else {
         throw new Error("Failed to update quotation status")
       }
     } catch (error) {
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to open WhatsApp",
-        variant: "destructive",
+        title: "WhatsApp message ready",
+        description: "The message opened, but the quotation status could not be updated",
       })
     }
   }

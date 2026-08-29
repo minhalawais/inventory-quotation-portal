@@ -284,10 +284,10 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
   return (
     <div className="space-y-6">
       {/* Customer Information Card */}
-      <Card className="card-modern">
+      <Card>
         <CardHeader className="pb-4">
           <CardTitle className="flex items-center gap-3 text-secondary">
-            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-indigo-50">
               <User className="h-5 w-5 text-primary" />
             </div>
             Customer Information
@@ -346,10 +346,10 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
       </Card>
 
       {/* Products Card */}
-      <Card className="card-modern">
+      <Card>
         <CardHeader className="pb-4">
           <CardTitle className="flex items-center gap-3 text-secondary">
-            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-indigo-50">
               <Package className="h-5 w-5 text-primary" />
             </div>
             Products & Services
@@ -360,7 +360,7 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
             const selectedProduct = products.find((p) => p._id === item.productId)
 
             return (
-              <div key={index} className="bg-muted/30 rounded-xl p-4 sm:p-6 space-y-4 border">
+              <div key={index} className="space-y-4 rounded-lg border bg-gray-50/60 p-4 sm:p-5">
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-semibold text-secondary">Item #{index + 1}</span>
                   <Button
@@ -448,7 +448,7 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
           })}
 
           {items.length === 0 && (
-            <div className="text-center py-12 bg-muted/30 rounded-xl border-2 border-dashed border-gray-300">
+            <div className="rounded-lg border border-dashed bg-gray-50/50 py-12 text-center">
               <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold text-secondary mb-2">No items added</h3>
               <p className="text-sm text-muted-foreground">Click "Add Item" to start building your quotation.</p>
@@ -463,7 +463,7 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
           </div>
 
           {items.length > 0 && (
-            <div className="gradient-primary p-6 rounded-xl text-white mt-4">
+            <div className="mt-4 rounded-lg bg-gray-950 p-5 text-white">
               <div className="flex justify-between items-center">
                 <span className="text-lg font-semibold">Grand Total:</span>
                 <span className="text-3xl font-bold">PKR {calculateTotal().toFixed(2)}</span>

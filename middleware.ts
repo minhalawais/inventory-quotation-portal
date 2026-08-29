@@ -5,13 +5,17 @@ import { getClientIP, isIPAllowed } from "./lib/ip-utils"
 import { getToken } from "next-auth/jwt"
 
 export default async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname
+  const isPublicQuotation = /^\/quotations\/[a-f\d]{24}\/?$/i.test(pathname)
+
   // Skip middleware for auth routes, API routes, and static files
   if (
-    request.nextUrl.pathname.startsWith("/auth") ||
-    request.nextUrl.pathname.startsWith("/_next") ||
-    request.nextUrl.pathname.startsWith("/api/") ||
-    request.nextUrl.pathname.includes(".") ||
-    request.nextUrl.pathname === "/restricted"
+    pathname.startsWith("/auth") ||
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/api/") ||
+    pathname.includes(".") ||
+    pathname === "/restricted" ||
+    isPublicQuotation
   ) {
     return NextResponse.next()
   }

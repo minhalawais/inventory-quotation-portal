@@ -24,7 +24,7 @@ import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { useSession } from "next-auth/react"
 import { logActivity } from "@/lib/logger"
-import { formatPhoneForWhatsApp, generateWhatsAppMessage } from "@/lib/phone-utils"
+import { buildWhatsAppShareUrl, formatPhoneForWhatsApp, openWhatsAppShare } from "@/lib/phone-utils"
 import QuotationViewModal from "./quotation-view-modal"
 import QuotationPreview from "./quotation-preview"
 import {
@@ -215,19 +215,30 @@ export default function QuotationList({ userRole }: QuotationListProps) {
   }
 
   const handleWhatsAppShare = async (quotation: Quotation) => {
-    try {
-      const formattedPhone = formatPhoneForWhatsApp(quotation.customerPhone)
-      const quotationUrl = `${window.location.origin}/quotations/${quotation._id}`
-      const message = generateWhatsAppMessage(quotation, quotationUrl)
-      const whatsappUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(message)}`
+    let formattedPhone: string
 
+    try {
+      formattedPhone = formatPhoneForWhatsApp(quotation.customerPhone)
+      const quotationUrl = `${window.location.origin}/quotations/${quotation._id}`
+      const whatsappUrl = buildWhatsAppShareUrl(formattedPhone, quotation, quotationUrl)
+
+      openWhatsAppShare(whatsappUrl)
+    } catch (error) {
+      toast({
+        title: "Unable to open WhatsApp",
+        description: error instanceof Error ? error.message : "Check the customer's phone number and try again",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
       const response = await fetch(`/api/quotations/${quotation._id}/send`, {
         method: "POST",
       })
 
       if (response.ok) {
         setQuotations(quotations.map((q) => (q._id === quotation._id ? { ...q, status: "sent" } : q)))
-        window.open(whatsappUrl, "_blank")
 
         if (session) {
           await logActivity({
@@ -243,8 +254,8 @@ export default function QuotationList({ userRole }: QuotationListProps) {
         }
 
         toast({
-          title: "Success",
-          description: "WhatsApp opened with quotation link and status updated to sent",
+          title: "WhatsApp message ready",
+          description: "The quotation message opened and the status was updated to sent",
         })
       } else {
         throw new Error("Failed to update quotation status")
@@ -264,9 +275,8 @@ export default function QuotationList({ userRole }: QuotationListProps) {
       }
 
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to open WhatsApp",
-        variant: "destructive",
+        title: "WhatsApp message ready",
+        description: "The message opened, but the quotation status could not be updated",
       })
     }
   }
@@ -428,13 +438,17 @@ export default function QuotationList({ userRole }: QuotationListProps) {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
         {[...Array(6)].map((_, i) => (
-          <div key={i} className="animate-pulse">
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-              <div className="h-4 bg-gray-200 rounded mb-3"></div>
-              <div className="h-4 bg-gray-200 rounded w-2/3 mb-4"></div>
-              <div className="h-20 bg-gray-200 rounded"></div>
+          <div key={i} className="animate-pulse rounded-xl border border-gray-200 bg-white">
+            <div className="border-b border-gray-100 bg-gray-50 p-4">
+              <div className="mb-3 h-4 w-32 rounded bg-gray-200" />
+              <div className="h-3 w-24 rounded bg-gray-200" />
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="h-3 w-full rounded bg-gray-100" />
+              <div className="h-3 w-4/5 rounded bg-gray-100" />
+              <div className="h-16 rounded-lg bg-gray-100" />
             </div>
           </div>
         ))}
@@ -444,202 +458,179 @@ export default function QuotationList({ userRole }: QuotationListProps) {
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
         {quotations.map((quotation) => (
-          <div key={quotation._id} className="group relative">
-            {/* Document-style card with paper effect */}
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden relative">
-              
-              {/* Document header with letterhead style */}
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-100 p-4 relative">
-                {/* Document corner fold effect */}
-                <div className="absolute top-0 right-0 w-6 h-6 bg-gray-100 transform rotate-45 translate-x-3 -translate-y-3 border-l border-b border-gray-200"></div>
-                
-                {/* Quotation ID and Status */}
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-blue-100 rounded-md flex items-center justify-center">
-                      <FileText className="h-4 w-4 text-blue-600" />
-                    </div>
-                    <div>
-                      <div className="text-xs text-gray-500 font-medium">QUOTATION</div>
-                      <div className="text-sm font-semibold text-gray-800">#{quotation._id.slice(-6).toUpperCase()}</div>
-                    </div>
+          <div
+            key={quotation._id}
+            className="overflow-hidden rounded-xl border border-gray-200 bg-white transition-all duration-200 hover:border-gray-300 hover:shadow-md"
+            style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.05)" }}
+          >
+            {/* Document header */}
+            <div className="border-b border-gray-100 bg-gray-50/80 p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50">
+                    <FileText className="h-4 w-4 text-indigo-600" />
                   </div>
-                  
-                  {/* Status indicator */}
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${getStatusDot(quotation.status)}`}></div>
-                    <Select
-                      value={quotation.status}
-                      onValueChange={(value) => handleStatusChange(quotation._id, value)}
-                    >
-                      <SelectTrigger className={`${getStatusColor(quotation.status)} border h-7 px-2 text-xs font-medium min-w-[80px]`}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="sent">Sent</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                        <SelectItem value="cancelled">Cancelled</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Quotation</p>
+                    <p className="text-sm font-bold text-gray-900">#{quotation._id.slice(-6).toUpperCase()}</p>
                   </div>
                 </div>
 
-                {/* Date */}
-                <div className="flex items-center gap-1 text-xs text-gray-600">
-                  <Calendar className="h-3 w-3" />
-                  <span>Issued: {new Date(quotation.createdAt).toLocaleDateString('en-US', { 
-                    month: 'short', 
-                    day: 'numeric', 
-                    year: 'numeric' 
-                  })}</span>
-                </div>
+                {/* Status selector */}
+                <Select
+                  value={quotation.status}
+                  onValueChange={(value) => handleStatusChange(quotation._id, value)}
+                >
+                  <SelectTrigger
+                    className={`h-7 w-auto rounded-full border px-2.5 text-[11px] font-semibold ${
+                      getStatusColor(quotation.status)
+                    }`}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="sent">Sent</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
-              {/* Document body */}
-              <div className="p-4 space-y-4">
-                {/* Bill To Section */}
-                <div>
-                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 border-b border-gray-100 pb-1">
-                    Bill To
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <User className="h-3 w-3 text-gray-400 flex-shrink-0" />
-                      <span className="font-semibold text-gray-800 text-sm">{quotation.customerName}</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <Phone className="h-3 w-3 text-gray-400 flex-shrink-0" />
-                      <span className="text-xs text-gray-600">{quotation.customerPhone}</span>
-                    </div>
-                    
-                    <div className="flex items-start gap-2">
-                      <MapPin className="h-3 w-3 text-gray-400 flex-shrink-0 mt-0.5" />
-                      <span className="text-xs text-gray-600 line-clamp-2 leading-relaxed">
-                        {quotation.customerAddress}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Items Summary */}
-                <div className="bg-gray-50 rounded-md p-3 border border-gray-100">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <Package className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm font-medium text-gray-700">Items Summary</span>
-                    </div>
-                    <span className="text-xs bg-white px-2 py-1 rounded-full border text-gray-600">
-                      {quotation.items.length} items
-                    </span>
-                  </div>
-                  
-                  {/* Total Amount */}
-                  <div className="border-t border-gray-200 pt-2 mt-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold text-gray-700">Total Amount:</span>
-                      <span className="text-lg font-bold text-blue-600">
-                        PKR {quotation.totalAmount.toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+              <div className="mt-2.5 flex items-center gap-1 text-xs text-gray-400">
+                <Calendar className="h-3 w-3" />
+                <span>
+                  {new Date(quotation.createdAt).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </span>
               </div>
+            </div>
 
-              {/* Document footer with actions */}
-              <div className="border-t border-gray-100 p-4 bg-gray-50/50">
-                {/* Primary Actions */}
-                <div className="grid grid-cols-2 gap-2 mb-3">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleView(quotation)}
-                    className="text-xs h-8 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200"
-                  >
-                    <Eye className="mr-1 h-3 w-3" />
-                    View
-                  </Button>
-
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handlePreview(quotation)}
-                    className="text-xs h-8 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200"
-                  >
-                    <FileText className="mr-1 h-3 w-3" />
-                    Preview
-                  </Button>
+            {/* Card body */}
+            <div className="p-4 space-y-3">
+              {/* Customer */}
+              <div>
+                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Customer</p>
+                <p className="text-sm font-semibold text-gray-900">{quotation.customerName}</p>
+                <div className="mt-1 flex items-center gap-1 text-xs text-gray-500">
+                  <Phone className="h-3 w-3" />
+                  <span>{quotation.customerPhone}</span>
                 </div>
-
-                {/* Secondary Actions */}
-                <div className="grid grid-cols-3 gap-1 mb-3">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleDownload(quotation)}
-                    className="text-xs h-7 hover:bg-green-50 hover:text-green-700"
-                  >
-                    <Download className="h-3 w-3" />
-                  </Button>
-
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleWhatsAppShare(quotation)}
-                    className="text-xs h-7 hover:bg-green-50 hover:text-green-700"
-                  >
-                    <MessageCircle className="h-3 w-3" />
-                  </Button>
-
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleCopyLink(quotation)}
-                    className="text-xs h-7 hover:bg-gray-100 hover:text-gray-700"
-                  >
-                    <Share2 className="h-3 w-3" />
-                  </Button>
-                </div>
-
-                {/* Send Button */}
-                {quotation.status === "pending" && (
-                  <Button
-                    size="sm"
-                    onClick={() => handleSendQuotation(quotation)}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs h-8"
-                  >
-                    <Send className="mr-1 h-3 w-3" />
-                    Send Quotation
-                  </Button>
+                {quotation.customerAddress && (
+                  <div className="mt-0.5 flex items-start gap-1 text-xs text-gray-500">
+                    <MapPin className="mt-0.5 h-3 w-3 shrink-0" />
+                    <span className="line-clamp-1">{quotation.customerAddress}</span>
+                  </div>
                 )}
               </div>
+
+              {/* Amount */}
+              <div className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5">
+                <div className="flex items-center gap-2">
+                  <Package className="h-3.5 w-3.5 text-gray-400" />
+                  <span className="text-xs text-gray-500">{quotation.items.length} items</span>
+                </div>
+                <span className="text-base font-bold text-gray-950">
+                  PKR {quotation.totalAmount.toLocaleString()}
+                </span>
+              </div>
+
+              {/* Primary actions */}
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleView(quotation)}
+                  className="h-9 rounded-lg text-xs font-medium hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
+                >
+                  <Eye className="mr-1.5 h-3.5 w-3.5" />
+                  View
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handlePreview(quotation)}
+                  className="h-9 rounded-lg text-xs font-medium hover:border-gray-300"
+                >
+                  <FileText className="mr-1.5 h-3.5 w-3.5" />
+                  Preview
+                </Button>
+              </div>
+
+              {/* Secondary actions */}
+              <div className="grid grid-cols-3 gap-1.5">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleDownload(quotation)}
+                  className="h-8 rounded-lg text-[11px] font-medium hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+                  title="Download PDF"
+                >
+                  <Download className="mr-1 h-3 w-3" />
+                  PDF
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleWhatsAppShare(quotation)}
+                  className="h-8 rounded-lg text-[11px] font-medium hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+                  title="Share via WhatsApp"
+                >
+                  <MessageCircle className="mr-1 h-3 w-3" />
+                  WA
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleCopyLink(quotation)}
+                  className="h-8 rounded-lg text-[11px] font-medium hover:border-gray-300"
+                  title="Copy link"
+                >
+                  <Share2 className="mr-1 h-3 w-3" />
+                  Copy
+                </Button>
+              </div>
+
+              {/* Send button for pending */}
+              {quotation.status === "pending" && (
+                <Button
+                  size="sm"
+                  onClick={() => handleSendQuotation(quotation)}
+                  className="h-9 w-full rounded-lg text-xs font-semibold"
+                  style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}
+                >
+                  <Send className="mr-1.5 h-3.5 w-3.5" />
+                  Send quotation
+                </Button>
+              )}
             </div>
           </div>
         ))}
 
         {quotations.length === 0 && (
-          <div className="col-span-full">
-            <Card className="text-center py-12 border-2 border-dashed border-gray-300">
-              <CardContent>
-                <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                  <FileText className="h-8 w-8 text-blue-600" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-800 mb-3">No quotations found</h3>
-                <p className="text-gray-600 mb-6 max-w-md mx-auto">
-                  Create your first quotation to get started with managing your business quotes and proposals.
-                </p>
-                <Button
-                  onClick={() => (window.location.href = "/quotations/create")}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  <FileText className="mr-2 h-4 w-4" />
-                  Create Your First Quotation
-                </Button>
-              </CardContent>
-            </Card>
+          <div className="col-span-full flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-gray-200 bg-white py-16 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gray-100">
+              <FileText className="h-7 w-7 text-gray-400" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-900">No quotations yet</p>
+              <p className="mt-1 text-xs text-gray-500">
+                Create your first quotation to start managing customer quotes.
+              </p>
+            </div>
+            <Button
+              onClick={() => (window.location.href = "/quotations/create")}
+              size="sm"
+              className="mt-1 h-9 rounded-lg"
+            >
+              <FileText className="mr-2 h-3.5 w-3.5" />
+              Create quotation
+            </Button>
           </div>
         )}
       </div>

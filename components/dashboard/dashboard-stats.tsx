@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Package, FileText, Users, TrendingUp } from "lucide-react"
+import { Package, FileText, Users, TrendingUp, ArrowUpRight } from "lucide-react"
 
 interface Stats {
   totalProducts: number
@@ -12,27 +11,64 @@ interface Stats {
   totalRevenue: number
 }
 
+const STAT_CONFIG = [
+  {
+    key: "totalProducts" as keyof Stats,
+    title: "Total Products",
+    icon: Package,
+    route: "/products",
+    accent: "#4f46e5",       // indigo
+    bg: "bg-indigo-50",
+    iconColor: "text-indigo-600",
+    borderColor: "border-l-indigo-500",
+    format: (v: number) => v.toLocaleString(),
+  },
+  {
+    key: "totalQuotations" as keyof Stats,
+    title: "Quotations",
+    icon: FileText,
+    route: "/quotations",
+    accent: "#059669",       // emerald
+    bg: "bg-emerald-50",
+    iconColor: "text-emerald-600",
+    borderColor: "border-l-emerald-500",
+    format: (v: number) => v.toLocaleString(),
+  },
+  {
+    key: "totalUsers" as keyof Stats,
+    title: "Active Users",
+    icon: Users,
+    route: "/users",
+    accent: "#0284c7",       // sky
+    bg: "bg-sky-50",
+    iconColor: "text-sky-600",
+    borderColor: "border-l-sky-500",
+    format: (v: number) => v.toLocaleString(),
+  },
+  {
+    key: "totalRevenue" as keyof Stats,
+    title: "Total Revenue",
+    icon: TrendingUp,
+    route: "/quotations",
+    accent: "#d97706",       // amber
+    bg: "bg-amber-50",
+    iconColor: "text-amber-600",
+    borderColor: "border-l-amber-500",
+    format: (v: number) => `PKR ${v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v.toLocaleString()}`,
+  },
+]
+
 export default function DashboardStats() {
-  const [stats, setStats] = useState<Stats>({
-    totalProducts: 0,
-    totalQuotations: 0,
-    totalUsers: 0,
-    totalRevenue: 0,
-  })
+  const [stats, setStats] = useState<Stats>({ totalProducts: 0, totalQuotations: 0, totalUsers: 0, totalRevenue: 0 })
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
-  useEffect(() => {
-    fetchStats()
-  }, [])
+  useEffect(() => { fetchStats() }, [])
 
   const fetchStats = async () => {
     try {
       const response = await fetch("/api/dashboard/stats")
-      if (response.ok) {
-        const data = await response.json()
-        setStats(data)
-      }
+      if (response.ok) setStats(await response.json())
     } catch (error) {
       console.error("Failed to fetch stats:", error)
     } finally {
@@ -40,78 +76,49 @@ export default function DashboardStats() {
     }
   }
 
-  const handleCardClick = (route: string) => {
-    router.push(route)
-  }
-
-  const statCards = [
-    {
-      title: "Total Products",
-      value: stats.totalProducts,
-      icon: Package,
-      color: "text-blue-600",
-      bgColor: "bg-blue-100",
-      route: "/products",
-    },
-    {
-      title: "Total Quotations",
-      value: stats.totalQuotations,
-      icon: FileText,
-      color: "text-green-600",
-      bgColor: "bg-green-100",
-      route: "/quotations",
-    },
-    {
-      title: "Active Users",
-      value: stats.totalUsers,
-      icon: Users,
-      color: "text-purple-600",
-      bgColor: "bg-purple-100",
-      route: "/users",
-    },
-    {
-      title: "Total Revenue",
-      value: `PKR${stats.totalRevenue.toLocaleString()}`,
-      icon: TrendingUp,
-      color: "text-orange-600",
-      bgColor: "bg-orange-100",
-      route: "/quotations",
-    },
-  ]
-
   if (loading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
         {[...Array(4)].map((_, i) => (
-          <Card key={i} className="animate-pulse">
-            <CardContent className="p-6">
-              <div className="h-8 bg-gray-200 rounded mb-2"></div>
-              <div className="h-6 bg-gray-200 rounded w-1/2"></div>
-            </CardContent>
-          </Card>
+          <div
+            key={i}
+            className="animate-pulse rounded-xl border border-gray-200 bg-white p-5 border-l-4 border-l-gray-200"
+          >
+            <div className="mb-4 h-3 w-24 rounded bg-gray-200" />
+            <div className="h-8 w-16 rounded bg-gray-200" />
+          </div>
         ))}
       </div>
     )
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      {statCards.map((stat, index) => (
-        <Card
-          key={index}
-          className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
-          onClick={() => handleCardClick(stat.route)}
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+      {STAT_CONFIG.map((stat) => (
+        <button
+          key={stat.key}
+          onClick={() => router.push(stat.route)}
+          className={`group relative overflow-hidden rounded-xl border border-gray-200 border-l-4 ${stat.borderColor} bg-white p-5 text-left transition-all duration-200 hover:border-gray-300 hover:shadow-md`}
+          style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.05)" }}
         >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">{stat.title}</CardTitle>
-            <div className={`p-2 rounded-full ${stat.bgColor}`}>
-              <stat.icon className={`h-4 w-4 ${stat.color}`} />
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                {stat.title}
+              </p>
+              <p className="mt-2.5 text-2xl font-bold text-gray-950 tracking-tight">
+                {stat.format(stats[stat.key] as number)}
+              </p>
             </div>
-          </CardHeader>
-          <CardContent className="pt-2">
-            <div className="text-2xl font-bold">{stat.value}</div>
-          </CardContent>
-        </Card>
+            <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${stat.bg}`}>
+              <stat.icon className={`h-5 w-5 ${stat.iconColor}`} />
+            </div>
+          </div>
+          <div className="mt-3 flex items-center gap-1 text-[11px] font-medium text-gray-400 group-hover:text-indigo-600 transition-colors">
+            <span>View details</span>
+            <ArrowUpRight className="h-3 w-3" />
+          </div>
+        </button>
       ))}
     </div>
   )

@@ -111,7 +111,7 @@ const [formData, setFormData] = useState({
 
   return (
     <div className="space-y-6">
-      <Card className="max-w-2xl">
+      <Card className="max-w-3xl">
         <CardHeader>
           <CardTitle className="flex items-center">
             <Button variant="ghost" size="icon" onClick={() => router.back()} className="mr-2 hover:bg-gray-100">
@@ -202,7 +202,7 @@ const [formData, setFormData] = useState({
             </div>
 
             <div className="flex space-x-4">
-              <Button type="submit" className="bg-blue-600 hover:bg-blue-700" disabled={loading}>
+              <Button type="submit" disabled={loading}>
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -221,7 +221,7 @@ const [formData, setFormData] = useState({
         </CardContent>
       </Card>
 
-      <div className="max-w-2xl">
+      <div className="max-w-3xl">
         <IPAddressManager
           allowedIps={formData.allowedIps}
           onChange={(ips) => setFormData({ ...formData, allowedIps: ips })}

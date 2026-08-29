@@ -2,17 +2,14 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Package, XCircle, ArrowRight } from 'lucide-react'
-import { Button } from "@/components/ui/button"
+import { Package, XCircle, ArrowRight } from "lucide-react"
 
 interface OutOfStockProduct {
   _id: string
   name: string
   productId: string
   imagePaths?: string[]
-  imagePath?: string // Keep for backward compatibility
+  imagePath?: string
 }
 
 export default function OutOfStockSummary() {
@@ -20,17 +17,12 @@ export default function OutOfStockSummary() {
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
-  useEffect(() => {
-    fetchOutOfStockProducts()
-  }, [])
+  useEffect(() => { fetchOutOfStockProducts() }, [])
 
   const fetchOutOfStockProducts = async () => {
     try {
       const response = await fetch("/api/products/out-of-stock")
-      if (response.ok) {
-        const data = await response.json()
-        setOutOfStockProducts(data)
-      }
+      if (response.ok) setOutOfStockProducts(await response.json())
     } catch (error) {
       console.error("Failed to fetch out of stock products:", error)
     } finally {
@@ -38,69 +30,88 @@ export default function OutOfStockSummary() {
     }
   }
 
-  const handleViewAllClick = () => {
-    router.push("/out-of-stock")
-  }
-
   return (
-    <Card
-      className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
-      onClick={handleViewAllClick}
-    >
-      <CardHeader>
-        <CardTitle className="flex items-center">
-          <XCircle className="mr-2 h-5 w-5 text-red-500" />
-          Out of Stock Products
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
+    <div className="rounded-xl border border-gray-200 bg-white" style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.05)" }}>
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900">Stock Exceptions</h3>
+          <p className="text-xs text-gray-500 mt-0.5">Products marked out of stock</p>
+        </div>
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50">
+          <XCircle className="h-4 w-4 text-red-500" />
+        </div>
+      </div>
+
+      <div className="p-5">
         {loading ? (
           <div className="space-y-3">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="animate-pulse">
-                <div className="h-4 bg-gray-200 rounded mb-2"></div>
-                <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+              <div key={i} className="flex animate-pulse items-center gap-3">
+                <div className="h-9 w-9 rounded-lg bg-gray-100 shrink-0" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-3 w-32 rounded bg-gray-100" />
+                  <div className="h-2.5 w-20 rounded bg-gray-100" />
+                </div>
               </div>
             ))}
           </div>
         ) : outOfStockProducts.length > 0 ? (
-          <div className="space-y-3">
-            {outOfStockProducts.slice(0, 3).map((product) => (
-              <Alert key={product._id} className="border-red-200 bg-red-50">
-                <Package className="h-4 w-4" />
-                <AlertDescription>
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="font-medium">{product.name}</p>
-                      <p className="text-sm text-gray-600">ID: {product.productId}</p>
-                    </div>
-                    {product.imagePaths && product.imagePaths.length > 0 && (
-                      <img
-                        src={product.imagePaths[0] || "/placeholder.svg"}
-                        alt={product.name}
-                        className="w-10 h-10 object-cover rounded-md ml-2"
-                      />
+          <div className="space-y-1">
+            {outOfStockProducts.slice(0, 4).map((product) => {
+              const image = product.imagePaths?.[0] ?? product.imagePath
+              return (
+                <div
+                  key={product._id}
+                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-gray-50"
+                >
+                  {/* Thumbnail or icon */}
+                  <div className="h-9 w-9 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
+                    {image ? (
+                      <img src={image} alt={product.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center">
+                        <Package className="h-4 w-4 text-gray-400" />
+                      </div>
                     )}
                   </div>
-                </AlertDescription>
-              </Alert>
-            ))}
-            {outOfStockProducts.length > 3 && (
-              <div className="text-center text-sm text-gray-500 mt-2">
-                +{outOfStockProducts.length - 3} more items are out of stock
-              </div>
+
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-gray-900">{product.name}</p>
+                    <p className="text-[11px] font-medium text-gray-400">#{product.productId}</p>
+                  </div>
+
+                  <span className="shrink-0 rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-600">
+                    Out of stock
+                  </span>
+                </div>
+              )
+            })}
+
+            {outOfStockProducts.length > 4 && (
+              <p className="mt-2 text-center text-xs text-gray-400">
+                +{outOfStockProducts.length - 4} more items
+              </p>
             )}
-            <Button variant="outline" className="w-full mt-4" onClick={handleViewAllClick}>
-              View All Out of Stock <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
+
+            <button
+              onClick={() => router.push("/out-of-stock")}
+              className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2 text-xs font-medium text-gray-600 transition-colors hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
+            >
+              Manage stock exceptions
+              <ArrowRight className="h-3 w-3" />
+            </button>
           </div>
         ) : (
-          <div className="text-center py-6 text-gray-500">
-            <Package className="mx-auto h-8 w-8 text-gray-400 mb-2" />
-            <p>Great! No products are currently out of stock.</p>
+          <div className="flex flex-col items-center justify-center gap-2 py-8">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50">
+              <Package className="h-5 w-5 text-emerald-500" />
+            </div>
+            <p className="text-sm font-medium text-gray-700">All products in stock</p>
+            <p className="text-xs text-gray-400">No stock exceptions at this time</p>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

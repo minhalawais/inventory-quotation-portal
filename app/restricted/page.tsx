@@ -1,9 +1,9 @@
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { redirect } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Shield, AlertTriangle } from "lucide-react"
+import { Shield } from "lucide-react"
 import { RestrictedActions } from "@/components/restricted-client"
+import { BrandMark } from "@/components/brand-mark"
 
 export default async function RestrictedPage() {
   const session = await getServerSession(authOptions)
@@ -13,45 +13,56 @@ export default async function RestrictedPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 via-orange-50 to-yellow-50 flex items-center justify-center p-4">
-      <Card className="max-w-md w-full shadow-lg border-red-200">
-        <CardHeader className="text-center pb-4">
-          <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
-            <Shield className="h-8 w-8 text-red-600" />
-          </div>
-          <CardTitle className="text-xl font-bold text-red-800 flex items-center justify-center">
-            <AlertTriangle className="h-5 w-5 mr-2" />
-            Access Restricted
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="text-center space-y-4">
-          <div className="space-y-2">
-            <p className="text-gray-700 font-medium">Hello, {session.user.name}</p>
-            <p className="text-sm text-gray-600">
-              Your current IP address is not authorized to access this portal. Please contact your administrator to add
-              your IP address to the allowed list.
-            </p>
-          </div>
+    <div
+      className="flex min-h-screen flex-col items-center justify-center p-6"
+      style={{ background: "hsl(222, 47%, 9%)" }}
+    >
+      {/* Brand */}
+      <div className="mb-12">
+        <BrandMark inverse />
+      </div>
 
-          <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-            <p className="text-xs text-gray-500 font-medium">Account Details:</p>
-            <p className="text-sm text-gray-700">
-              <span className="font-medium">Email:</span> {session.user.email}
-            </p>
-            <p className="text-sm text-gray-700">
-              <span className="font-medium">Role:</span> {session.user.role}
-            </p>
-          </div>
+      {/* Card */}
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-8 backdrop-blur-sm">
+        {/* Icon */}
+        <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/10 ring-1 ring-amber-500/20">
+          <Shield className="h-7 w-7 text-amber-400" />
+        </div>
 
-          <RestrictedActions />
+        {/* Heading */}
+        <div className="text-center mb-6">
+          <h1 className="text-lg font-bold text-white tracking-tight mb-2">Access restricted</h1>
+          <p className="text-sm text-gray-400 leading-relaxed">
+            Hello, <span className="text-white font-medium">{session.user.name}</span>. Your current
+            IP address is not authorized to access this portal.
+          </p>
+        </div>
 
-          <div className="pt-4 border-t">
-            <p className="text-xs text-gray-500">
-              If you believe this is an error, please contact your system administrator.
-            </p>
+        {/* Account info */}
+        <div className="mb-6 rounded-xl border border-white/8 bg-white/5 p-4 space-y-2">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-3">
+            Account details
+          </p>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-500">Email</span>
+            <span className="text-xs font-medium text-gray-200">{session.user.email}</span>
           </div>
-        </CardContent>
-      </Card>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-500">Role</span>
+            <span className="text-xs font-medium text-gray-200 capitalize">
+              {session.user.role.replace(/_/g, " ")}
+            </span>
+          </div>
+        </div>
+
+        <RestrictedActions />
+
+        <p className="mt-5 text-center text-xs text-gray-600">
+          Contact your administrator to add your IP address to the allowed list.
+        </p>
+      </div>
+
+      <p className="mt-8 text-xs text-gray-600">InventoryOS · IP-whitelisted access</p>
     </div>
   )
 }

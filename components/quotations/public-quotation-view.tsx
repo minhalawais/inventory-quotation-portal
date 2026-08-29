@@ -1,11 +1,12 @@
 "use client"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Download, Phone, MapPin, Calendar, Clock, FileText, ArrowLeft, Building2, Mail, Globe } from "lucide-react"
+import { Download, Phone, MapPin, Calendar, Clock, FileText, ArrowLeft, Building2, Mail, Globe, User, TriangleAlert } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { useToast } from "@/hooks/use-toast"
 import Image from "next/image"
+import { BrandMark } from "@/components/brand-mark"
 
 interface QuotationItem {
   productId: string
@@ -93,10 +94,10 @@ export default function PublicQuotationView({ quotation }: PublicQuotationViewPr
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-muted to-muted/50">
+    <div className="min-h-screen bg-gray-100">
       {/* Header */}
       <div className="bg-white shadow-sm border-b sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto mobile-container py-4">
+        <div className="mx-auto max-w-5xl px-4 py-4 sm:px-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <Button variant="outline" size="sm" onClick={() => router.back()} className="mobile-button">
@@ -104,13 +105,7 @@ export default function PublicQuotationView({ quotation }: PublicQuotationViewPr
                 Back
               </Button>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
-                  <Building2 className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-secondary">Inventory Portal</h1>
-                  <p className="text-sm text-muted-foreground">Professional Quotation</p>
-                </div>
+                <BrandMark />
               </div>
             </div>
             <Button
@@ -126,19 +121,16 @@ export default function PublicQuotationView({ quotation }: PublicQuotationViewPr
       </div>
 
       {/* Content */}
-      <div className="max-w-5xl mx-auto mobile-container py-8">
-        <div className="bg-white rounded-2xl shadow-lg overflow-hidden border">
+      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+        <div className="overflow-hidden rounded-lg border bg-white shadow-sm">
           {/* Quotation Header */}
-          <div className="gradient-primary text-white p-8 text-center">
+          <div className="bg-gray-950 p-8 text-center text-white">
             <div className="mb-6">
-              <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Building2 className="h-8 w-8 text-white" />
-              </div>
-              <h1 className="text-3xl sm:text-4xl font-bold mb-2 text-white">Inventory Portal</h1>
-              <p className="text-primary-foreground/80">Professional Inventory & Quotation Management</p>
+              <div className="mb-4 flex justify-center"><BrandMark inverse /></div>
+              <p className="text-sm text-gray-400">Customer quotation</p>
             </div>
 
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 max-w-md mx-auto">
+            <div className="mx-auto max-w-md rounded-lg border border-white/10 bg-white/5 p-6">
               <h2 className="text-2xl font-bold mb-4 text-white">QUOTATION</h2>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 <div className="bg-white px-4 py-2 rounded-full">
@@ -167,13 +159,7 @@ export default function PublicQuotationView({ quotation }: PublicQuotationViewPr
                 <div className="space-y-4">
                   <div className="flex items-start gap-3">
                     <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center mt-1">
-                      <svg className="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
-                        <path
-                          fillRule="evenodd"
-                          d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
+                      <User className="h-4 w-4 text-gray-600" />
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-medium text-muted-foreground">Customer Name</p>
@@ -415,12 +401,10 @@ export default function PublicQuotationView({ quotation }: PublicQuotationViewPr
 
             {/* Terms and Conditions */}
             <div className="mb-8">
-              <div className="alert-warning rounded-xl">
+              <div className="alert-warning rounded-lg">
                 <h4 className="font-bold text-yellow-800 mb-4 flex items-center gap-3">
-                  <div className="w-8 h-8 bg-yellow-200 rounded-lg flex items-center justify-center">
-                    <span className="text-yellow-600 font-bold">!</span>
-                  </div>
-                  Terms & Conditions
+                  <TriangleAlert className="h-5 w-5 text-amber-600" />
+                  Terms and conditions
                 </h4>
                 <div className="text-sm text-yellow-800 space-y-3 ml-11">
                   <div className="flex items-start gap-3">
@@ -452,13 +436,10 @@ export default function PublicQuotationView({ quotation }: PublicQuotationViewPr
             </div>
 
             {/* Footer */}
-            <div className="text-center bg-gradient-to-r from-muted/50 to-muted/30 rounded-xl p-8 border">
+            <div className="rounded-lg border bg-gray-50 p-8 text-center">
               <div className="mb-6">
-                <div className="w-20 h-20 gradient-primary rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <span className="text-white font-bold text-2xl">IP</span>
-                </div>
-                <h4 className="font-bold text-secondary text-xl mb-2">Inventory Portal</h4>
-                <p className="text-muted-foreground">Professional Business Solutions</p>
+                <div className="mb-3 flex justify-center"><BrandMark /></div>
+                <p className="text-muted-foreground">Inventory and quotation operations</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm text-muted-foreground">
@@ -477,7 +458,7 @@ export default function PublicQuotationView({ quotation }: PublicQuotationViewPr
               </div>
 
               <div className="mt-6 pt-6 border-t border-gray-200">
-                <p className="text-primary font-semibold">Thank you for your business!</p>
+                <p className="font-medium text-gray-700">Thank you for your business.</p>
               </div>
             </div>
           </div>

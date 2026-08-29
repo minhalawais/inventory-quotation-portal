@@ -2,9 +2,6 @@ import { redirect } from "next/navigation"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import ProductForm from "@/components/products/product-form"
-import { ArrowLeft, Plus } from "lucide-react"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
 
 export default async function AddProductPage() {
   const session = await getServerSession(authOptions)
@@ -14,9 +11,7 @@ export default async function AddProductPage() {
   }
 
   return (
-    <div className="mobile-container space-y-6">
-
-      {/* Form */}
+    <div className="space-y-6">
       <ProductForm />
     </div>
   )

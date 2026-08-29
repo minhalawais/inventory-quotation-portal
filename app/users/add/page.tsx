@@ -2,6 +2,8 @@ import { redirect } from "next/navigation"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import UserForm from "@/components/users/user-form"
+import { UserPlus } from "lucide-react"
+import { PageHeading } from "@/components/layout/page-heading"
 
 export default async function AddUserPage() {
   const session = await getServerSession(authOptions)
@@ -11,11 +13,8 @@ export default async function AddUserPage() {
   }
 
   return (
-    <div className="space-y-4 lg:space-y-6">
-      <div>
-        <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Add New User</h1>
-        <p className="text-gray-600 mt-1">Create a new user account for the system</p>
-      </div>
+    <div className="space-y-6">
+      <PageHeading title="Add user" description="Create an account and define its access boundaries." icon={UserPlus} />
       <UserForm />
     </div>
   )

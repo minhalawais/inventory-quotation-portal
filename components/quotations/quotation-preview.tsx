@@ -85,9 +85,9 @@ export default function QuotationPreview({ quotation, isOpen, onClose, onDownloa
         {/* PDF Preview Content */}
         <div className="bg-white border-0 sm:border rounded-none sm:rounded-xl shadow-none sm:shadow-sm">
           {/* Header */}
-          <div className="gradient-primary text-white p-8 text-center rounded-t-xl">
+          <div className="rounded-t-lg bg-gray-950 p-8 text-center text-white">
             <div className="mb-6">
-              <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-md bg-white/10">
                 <Building2 className="h-8 w-8 text-white" />
               </div>
               <h1 className="text-3xl sm:text-4xl font-bold mb-2 text-white">Inventory Portal</h1>
@@ -209,7 +209,7 @@ export default function QuotationPreview({ quotation, isOpen, onClose, onDownloa
 
             {/* Items Section */}
             <div className="mb-8">
-              <div className="gradient-primary rounded-t-xl p-6 text-center">
+              <div className="rounded-t-lg bg-gray-950 p-6 text-center">
                 <h3 className="text-xl font-bold text-white">Items & Services</h3>
               </div>
 
@@ -297,7 +297,7 @@ export default function QuotationPreview({ quotation, isOpen, onClose, onDownloa
             {/* Total Section */}
             <div className="mb-8">
               <div className="flex justify-end">
-                <div className="w-full sm:w-96 gradient-primary rounded-xl p-6 text-white">
+                <div className="w-full rounded-lg bg-gray-950 p-6 text-white sm:w-96">
                   <div className="space-y-4">
                     <div className="flex justify-between items-center">
                       <span className="font-semibold">Subtotal:</span>
@@ -357,7 +357,7 @@ export default function QuotationPreview({ quotation, isOpen, onClose, onDownloa
             </div>
 
             {/* Footer */}
-            <div className="text-center bg-gradient-to-r from-muted/50 to-muted/30 rounded-xl p-8 border">
+            <div className="rounded-lg border bg-gray-50 p-8 text-center">
               <div className="mb-6">
                 <div className="w-20 h-20 gradient-primary rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <span className="text-white font-bold text-2xl">IP</span>

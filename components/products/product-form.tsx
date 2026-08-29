@@ -193,27 +193,27 @@ export default function ProductForm() {
   }
 
   return (
-    <div className="mobile-container space-y-6">
-      <Card className="card-modern">
+    <div className="mx-auto max-w-5xl space-y-6">
+      <Card className="border-0 bg-transparent shadow-none">
         <CardHeader className="pb-4">
-          <CardTitle className="flex items-center gap-3 text-secondary">
+          <CardTitle className="flex items-center gap-3 text-gray-950">
             <Button variant="ghost" size="icon" onClick={() => router.back()} className="mobile-button hover:bg-muted">
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+            <div className="flex h-9 w-9 items-center justify-center rounded-md border bg-white">
               <Package className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <span className="text-xl font-bold">Add New Product</span>
+              <span className="text-xl font-semibold">Add product</span>
               <p className="text-sm text-muted-foreground font-normal">Create a new product in your inventory</p>
             </div>
           </CardTitle>
         </CardHeader>
 
-        <CardContent className="mobile-spacing">
+        <CardContent className="p-0">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Product Categories */}
-            <div className="bg-muted/30 rounded-xl p-6 border">
+            <div className="rounded-lg border bg-white p-5">
               <h3 className="text-lg font-semibold text-secondary mb-4 flex items-center gap-3">
                 <div className="w-8 h-8 bg-secondary/10 rounded-lg flex items-center justify-center">
                   <Tag className="h-4 w-4 text-secondary" />
@@ -255,7 +255,7 @@ export default function ProductForm() {
             </div>
 
             {/* Product Details */}
-            <div className="bg-primary/5 rounded-xl p-6 border border-primary/20">
+            <div className="rounded-lg border bg-white p-5">
               <h3 className="text-lg font-semibold text-secondary mb-4 flex items-center gap-3">
                 <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
                   <Hash className="h-4 w-4 text-primary" />
@@ -316,7 +316,7 @@ export default function ProductForm() {
             </div>
 
             {/* Stock Status */}
-            <div className="bg-orange/5 rounded-xl p-6 border border-orange/20">
+            <div className="rounded-lg border bg-white p-5">
               <h3 className="text-lg font-semibold text-secondary mb-4 flex items-center gap-3">
                 <div className="w-8 h-8 bg-orange/10 rounded-lg flex items-center justify-center">
                   <AlertTriangle className="h-4 w-4 text-orange-600" />
@@ -340,13 +340,13 @@ export default function ProductForm() {
                   </p>
                 </div>
                 {!isManager && (
-                  <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full">Manager Only</span>
+                  <span className="rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-800">Manager only</span>
                 )}
               </div>
             </div>
 
             {/* Pricing */}
-            <div className="bg-success/5 rounded-xl p-6 border border-success/20">
+            <div className="rounded-lg border bg-white p-5">
               <h3 className="text-lg font-semibold text-secondary mb-4 flex items-center gap-3">
                 <div className="w-8 h-8 bg-success/10 rounded-lg flex items-center justify-center">
                   <DollarSign className="h-4 w-4 text-success" />
@@ -384,7 +384,7 @@ export default function ProductForm() {
                     >
                       <ShoppingCart className="h-4 w-4" />
                       Purchase Rate (PKR)
-                      <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full">Manager Only</span>
+                      <span className="rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-800">Manager only</span>
                     </Label>
                     <Input
                       id="purchaseRate"
@@ -405,7 +405,7 @@ export default function ProductForm() {
             </div>
 
             {/* Product Images */}
-            <div className="bg-muted/30 rounded-xl p-6 border">
+            <div className="rounded-lg border bg-white p-5">
               <h3 className="text-lg font-semibold text-secondary mb-4 flex items-center gap-3">
                 <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
                   <ImageIcon className="h-4 w-4 text-gray-600" />
@@ -418,7 +418,7 @@ export default function ProductForm() {
 
             {/* Summary Card */}
             {formData.name && formData.price && (
-              <div className="gradient-primary rounded-xl p-6 text-white">
+              <div className="rounded-lg bg-gray-950 p-5 text-white">
                 <h3 className="text-lg font-semibold mb-4">Product Summary</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
                   <div>

@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { Search, Filter, X } from "lucide-react"
-import { Card, CardContent } from "@/components/ui/card"
 
 interface SubGroup {
   group: string
@@ -68,103 +67,107 @@ export default function ProductFilters({ onFilterChange, groups, subGroups, curr
     localFilters.selectedSubGroup !== "all"
 
   return (
-    <Card className="card-modern">
-      <CardContent className="mobile-card">
-        <div className="flex items-center gap-2 mb-4">
-          <Filter className="h-5 w-5 text-primary" />
-          <h3 className="font-semibold text-secondary">Filter Products</h3>
-          {hasActiveFilters && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearFilters}
-              className="ml-auto text-muted-foreground hover:text-destructive"
-            >
-              <X className="h-4 w-4 mr-1" />
-              Clear
-            </Button>
+    <div
+      className="rounded-xl border border-gray-200 bg-white p-4 transition-all duration-200"
+      style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.04)" }}
+    >
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="flex items-center gap-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+            <Filter className="h-4 w-4" />
+          </div>
+          <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">Filter catalog</span>
+        </div>
+        {hasActiveFilters && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="h-7 px-2.5 text-xs text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg"
+          >
+            <X className="h-3.5 w-3.5 mr-1" />
+            Reset all
+          </Button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {/* Search Input */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search by name or ID..."
+            value={localFilters.searchTerm}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="h-9 pl-9 rounded-lg text-sm border-gray-200 focus:border-indigo-500"
+          />
+        </div>
+
+        {/* Group Select */}
+        <Select value={localFilters.selectedGroup} onValueChange={handleGroupChange}>
+          <SelectTrigger className="h-9 rounded-lg text-sm border-gray-200">
+            <SelectValue placeholder="All Groups" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Groups</SelectItem>
+            {groups.map((group) => (
+              <SelectItem key={group} value={group}>
+                {group}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Sub-Group Select */}
+        <Select
+          value={localFilters.selectedSubGroup}
+          onValueChange={handleSubGroupChange}
+          disabled={localFilters.selectedGroup === "all" && availableSubGroups.length === 0}
+        >
+          <SelectTrigger className="h-9 rounded-lg text-sm border-gray-200">
+            <SelectValue placeholder={localFilters.selectedGroup !== "all" ? "All Sub-Groups" : "Select group first"} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Sub-Groups</SelectItem>
+            {availableSubGroups.map((subGroup) => (
+              <SelectItem key={subGroup} value={subGroup}>
+                {subGroup}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Active filters pill tags */}
+      {hasActiveFilters && (
+        <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-medium text-gray-400">Active filters:</span>
+          {localFilters.searchTerm && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-full text-xs font-medium">
+              "{localFilters.searchTerm}"
+              <button onClick={() => handleSearchChange("")} className="hover:text-indigo-900 ml-0.5">
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+          {localFilters.selectedGroup !== "all" && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-gray-100 text-gray-700 border border-gray-200 rounded-full text-xs font-medium">
+              Group: {localFilters.selectedGroup}
+              <button onClick={() => handleGroupChange("all")} className="hover:text-gray-900 ml-0.5">
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+          {localFilters.selectedSubGroup !== "all" && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-violet-50 text-violet-700 border border-violet-200 rounded-full text-xs font-medium">
+              Sub: {localFilters.selectedSubGroup}
+              <button onClick={() => handleSubGroupChange("all")} className="hover:text-violet-900 ml-0.5">
+                <X className="h-3 w-3" />
+              </button>
+            </span>
           )}
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Search Input */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search products..."
-              value={localFilters.searchTerm}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-
-          {/* Group Select */}
-          <Select value={localFilters.selectedGroup} onValueChange={handleGroupChange}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select group" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Groups</SelectItem>
-              {groups.map((group) => (
-                <SelectItem key={group} value={group}>
-                  {group}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Sub-Group Select */}
-          <Select 
-            value={localFilters.selectedSubGroup} 
-            onValueChange={handleSubGroupChange}
-            disabled={localFilters.selectedGroup === "all" && availableSubGroups.length === 0}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder={localFilters.selectedGroup !== "all" ? "All Sub-Groups" : "Select a Group first"} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Sub-Groups</SelectItem>
-              {availableSubGroups.map((subGroup) => (
-                <SelectItem key={subGroup} value={subGroup}>
-                  {subGroup}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Active filters summary */}
-        {hasActiveFilters && (
-          <div className="mt-4 pt-4 border-t border-border">
-            <div className="flex flex-wrap gap-2">
-              {localFilters.searchTerm && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary rounded-md text-sm">
-                  Search: "{localFilters.searchTerm}"
-                  <button onClick={() => handleSearchChange("")} className="hover:bg-primary/20 rounded">
-                    <X className="h-3 w-3" />
-                  </button>
-                </span>
-              )}
-              {localFilters.selectedGroup !== "all" && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 bg-secondary/10 text-secondary rounded-md text-sm">
-                  Group: {localFilters.selectedGroup}
-                  <button onClick={() => handleGroupChange("all")} className="hover:bg-secondary/20 rounded">
-                    <X className="h-3 w-3" />
-                  </button>
-                </span>
-              )}
-              {localFilters.selectedSubGroup !== "all" && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 bg-accent/10 text-accent-foreground rounded-md text-sm">
-                  Sub-Group: {localFilters.selectedSubGroup}
-                  <button onClick={() => handleSubGroupChange("all")} className="hover:bg-accent/20 rounded">
-                    <X className="h-3 w-3" />
-                  </button>
-                </span>
-              )}
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      )}
+    </div>
   )
 }

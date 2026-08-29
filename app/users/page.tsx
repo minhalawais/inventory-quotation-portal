@@ -5,6 +5,8 @@ import UserList from "@/components/users/user-list"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
 import Link from "next/link"
+import { Users } from "lucide-react"
+import { PageHeading } from "@/components/layout/page-heading"
 
 export default async function UsersPage() {
   const session = await getServerSession(authOptions)
@@ -14,16 +16,10 @@ export default async function UsersPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-blue-800">User Management</h1>
-        <Link href="/users/add">
-          <Button className="bg-blue-600 hover:bg-blue-700">
-            <Plus className="mr-2 h-4 w-4" />
-            Add User
-          </Button>
-        </Link>
-      </div>
+    <div className="space-y-6">
+      <PageHeading title="User access" description="Manage roles, availability, and network access rules." icon={Users} actions={
+        <Button asChild><Link href="/users/add"><Plus className="h-4 w-4" /> Add user</Link></Button>
+      } />
 
       <UserList />
     </div>

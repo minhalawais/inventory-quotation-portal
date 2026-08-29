@@ -1,12 +1,22 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
-import { Search, Filter, Download, Activity, User, Package, FileText, Trash2 } from "lucide-react"
+import {
+  Search,
+  Download,
+  Activity,
+  User,
+  Package,
+  FileText,
+  Trash2,
+  CheckCircle2,
+  XCircle,
+  TriangleAlert,
+  RefreshCw,
+} from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface ActivityLog {
@@ -24,19 +34,51 @@ interface ActivityLog {
   status: "success" | "error" | "warning"
 }
 
-const actionIcons = {
+const ACTION_ICONS: Record<string, React.ElementType> = {
   CREATE: Package,
   UPDATE: FileText,
   DELETE: Trash2,
   LOGIN: User,
   LOGOUT: User,
   VIEW: Activity,
+  BULK_UPDATE: Package,
 }
 
-const statusColors = {
-  success: "bg-green-100 text-green-800 border-green-200",
-  error: "bg-red-100 text-red-800 border-red-200",
-  warning: "bg-yellow-100 text-yellow-800 border-yellow-200",
+const ACTION_COLORS: Record<string, string> = {
+  CREATE: "bg-emerald-50 text-emerald-600",
+  UPDATE: "bg-indigo-50 text-indigo-600",
+  DELETE: "bg-red-50 text-red-600",
+  LOGIN: "bg-sky-50 text-sky-600",
+  LOGOUT: "bg-gray-50 text-gray-600",
+  VIEW: "bg-gray-50 text-gray-600",
+  BULK_UPDATE: "bg-amber-50 text-amber-600",
+}
+
+const STATUS_CONFIG = {
+  success: {
+    dot: "bg-emerald-400",
+    badge: "bg-emerald-50 text-emerald-700 border border-emerald-200",
+    bar: "bg-emerald-500",
+    label: "Success",
+  },
+  error: {
+    dot: "bg-red-400",
+    badge: "bg-red-50 text-red-700 border border-red-200",
+    bar: "bg-red-500",
+    label: "Error",
+  },
+  warning: {
+    dot: "bg-amber-400",
+    badge: "bg-amber-50 text-amber-700 border border-amber-200",
+    bar: "bg-amber-500",
+    label: "Warning",
+  },
+}
+
+const ROLE_LABELS: Record<string, string> = {
+  manager: "Manager",
+  rider: "Rider",
+  product_manager: "Product Mgr",
 }
 
 export default function ActivityLogs() {
@@ -47,23 +89,15 @@ export default function ActivityLogs() {
   const [filterStatus, setFilterStatus] = useState("all")
   const { toast } = useToast()
 
-  useEffect(() => {
-    fetchLogs()
-  }, [])
+  useEffect(() => { fetchLogs() }, [])
 
   const fetchLogs = async () => {
     try {
+      setLoading(true)
       const response = await fetch("/api/logs")
-      if (response.ok) {
-        const data = await response.json()
-        setLogs(data)
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to fetch activity logs",
-        variant: "destructive",
-      })
+      if (response.ok) setLogs(await response.json())
+    } catch {
+      toast({ title: "Error", description: "Failed to fetch activity logs", variant: "destructive" })
     } finally {
       setLoading(false)
     }
@@ -75,10 +109,8 @@ export default function ActivityLogs() {
       log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
       log.resource.toLowerCase().includes(searchTerm.toLowerCase()) ||
       log.details.toLowerCase().includes(searchTerm.toLowerCase())
-
     const matchesAction = filterAction === "all" || log.action === filterAction
     const matchesStatus = filterStatus === "all" || log.status === filterStatus
-
     return matchesSearch && matchesAction && matchesStatus
   })
 
@@ -108,201 +140,167 @@ export default function ActivityLogs() {
     window.URL.revokeObjectURL(url)
   }
 
-  if (loading) {
-    return (
-      <div className="space-y-4">
-        {[...Array(10)].map((_, i) => (
-          <Card key={i} className="animate-pulse">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-4">
-                <div className="w-10 h-10 bg-gray-200 rounded-full"></div>
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                  <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-                </div>
-                <div className="w-20 h-6 bg-gray-200 rounded"></div>
+  return (
+    <div className="space-y-5">
+      {/* Stats bar */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {[
+          { label: "Total Events", value: logs.length, icon: Activity, color: "text-indigo-600 bg-indigo-50", border: "border-l-indigo-500" },
+          { label: "Successful", value: logs.filter((l) => l.status === "success").length, icon: CheckCircle2, color: "text-emerald-600 bg-emerald-50", border: "border-l-emerald-500" },
+          { label: "Errors", value: logs.filter((l) => l.status === "error").length, icon: XCircle, color: "text-red-600 bg-red-50", border: "border-l-red-500" },
+          { label: "Warnings", value: logs.filter((l) => l.status === "warning").length, icon: TriangleAlert, color: "text-amber-600 bg-amber-50", border: "border-l-amber-500" },
+        ].map((s) => (
+          <div
+            key={s.label}
+            className={`rounded-xl border border-gray-200 border-l-4 ${s.border} bg-white p-4`}
+            style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.04)" }}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{s.label}</p>
+                <p className="mt-1.5 text-2xl font-bold text-gray-950">{s.value}</p>
               </div>
-            </CardContent>
-          </Card>
+              <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${s.color}`}>
+                <s.icon className="h-5 w-5" />
+              </div>
+            </div>
+          </div>
         ))}
       </div>
-    )
-  }
 
-  return (
-    <div className="space-y-6">
-      {/* Filters */}
-      <Card className="bg-white shadow-sm">
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Filter className="mr-2 h-5 w-5 text-blue-600" />
-            Filters & Search
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Search logs..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-
-            <Select value={filterAction} onValueChange={setFilterAction}>
-              <SelectTrigger>
-                <SelectValue placeholder="Filter by Action" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Actions</SelectItem>
-                <SelectItem value="CREATE">Create</SelectItem>
-                <SelectItem value="UPDATE">Update</SelectItem>
-                <SelectItem value="DELETE">Delete</SelectItem>
-                <SelectItem value="LOGIN">Login</SelectItem>
-                <SelectItem value="LOGOUT">Logout</SelectItem>
-                <SelectItem value="VIEW">View</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger>
-                <SelectValue placeholder="Filter by Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="success">Success</SelectItem>
-                <SelectItem value="error">Error</SelectItem>
-                <SelectItem value="warning">Warning</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Button onClick={exportLogs} variant="outline" className="w-full">
-              <Download className="mr-2 h-4 w-4" />
-              Export CSV
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-blue-600 text-sm font-medium">Total Logs</p>
-                <p className="text-2xl font-bold text-blue-900">{logs.length}</p>
-              </div>
-              <Activity className="h-8 w-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-green-600 text-sm font-medium">Success</p>
-                <p className="text-2xl font-bold text-green-900">
-                  {logs.filter((log) => log.status === "success").length}
-                </p>
-              </div>
-              <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-sm">✓</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-red-600 text-sm font-medium">Errors</p>
-                <p className="text-2xl font-bold text-red-900">{logs.filter((log) => log.status === "error").length}</p>
-              </div>
-              <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-sm">✕</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-yellow-600 text-sm font-medium">Warnings</p>
-                <p className="text-2xl font-bold text-yellow-900">
-                  {logs.filter((log) => log.status === "warning").length}
-                </p>
-              </div>
-              <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-sm">!</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-gray-200 bg-white p-4" style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.04)" }}>
+        <div className="relative min-w-[200px] flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Input
+            placeholder="Search logs…"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="h-9 rounded-lg pl-9 text-sm"
+          />
+        </div>
+        <Select value={filterAction} onValueChange={setFilterAction}>
+          <SelectTrigger className="h-9 w-[140px] rounded-lg text-sm">
+            <SelectValue placeholder="Action" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All actions</SelectItem>
+            <SelectItem value="CREATE">Create</SelectItem>
+            <SelectItem value="UPDATE">Update</SelectItem>
+            <SelectItem value="DELETE">Delete</SelectItem>
+            <SelectItem value="LOGIN">Login</SelectItem>
+            <SelectItem value="LOGOUT">Logout</SelectItem>
+            <SelectItem value="VIEW">View</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <SelectTrigger className="h-9 w-[130px] rounded-lg text-sm">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="success">Success</SelectItem>
+            <SelectItem value="error">Error</SelectItem>
+            <SelectItem value="warning">Warning</SelectItem>
+          </SelectContent>
+        </Select>
+        <div className="flex gap-2 ml-auto">
+          <Button onClick={fetchLogs} variant="outline" size="sm" className="h-9 rounded-lg" disabled={loading}>
+            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+          <Button onClick={exportLogs} variant="outline" size="sm" className="h-9 rounded-lg">
+            <Download className="h-3.5 w-3.5 mr-1.5" />
+            Export CSV
+          </Button>
+        </div>
       </div>
 
-      {/* Logs List */}
-      <div className="space-y-3">
-        {filteredLogs.map((log) => {
-          const ActionIcon = actionIcons[log.action as keyof typeof actionIcons] || Activity
-          return (
-            <Card key={log._id} className="hover:shadow-md transition-shadow duration-200 bg-white">
-              <CardContent className="p-4">
-                <div className="flex items-start space-x-4">
-                  <div className="flex-shrink-0">
-                    <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
-                      <ActionIcon className="h-5 w-5 text-gray-600" />
-                    </div>
+      {/* Results count */}
+      <div className="flex items-center justify-between px-1">
+        <p className="text-xs text-gray-500">
+          Showing <span className="font-semibold text-gray-900">{filteredLogs.length}</span> of {logs.length} events
+        </p>
+      </div>
+
+      {/* Timeline */}
+      {loading ? (
+        <div className="space-y-3">
+          {[...Array(8)].map((_, i) => (
+            <div key={i} className="flex animate-pulse gap-4 rounded-xl border border-gray-200 bg-white p-4">
+              <div className="h-10 w-10 rounded-xl bg-gray-100 shrink-0" />
+              <div className="flex-1 space-y-2">
+                <div className="h-3.5 w-48 rounded bg-gray-100" />
+                <div className="h-3 w-64 rounded bg-gray-100" />
+                <div className="h-3 w-32 rounded bg-gray-100" />
+              </div>
+              <div className="h-5 w-16 rounded-full bg-gray-100 shrink-0" />
+            </div>
+          ))}
+        </div>
+      ) : filteredLogs.length > 0 ? (
+        <div className="space-y-2">
+          {filteredLogs.map((log) => {
+            const ActionIcon = ACTION_ICONS[log.action] ?? Activity
+            const actionColor = ACTION_COLORS[log.action] ?? "bg-gray-50 text-gray-600"
+            const statusConfig = STATUS_CONFIG[log.status]
+
+            return (
+              <div
+                key={log._id}
+                className="group flex items-start gap-4 rounded-xl border border-gray-200 bg-white p-4 transition-all duration-150 hover:border-gray-300 hover:shadow-sm"
+              >
+                {/* Action icon */}
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${actionColor}`}>
+                  <ActionIcon className="h-4.5 w-4.5" />
+                </div>
+
+                {/* Content */}
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <p className="text-sm font-semibold text-gray-900">{log.userName}</p>
+                    <span className="rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                      {ROLE_LABELS[log.userRole] ?? log.userRole}
+                    </span>
+                    <span className="text-[11px] font-semibold text-gray-600 bg-gray-100 rounded px-1.5 py-0.5">
+                      {log.action}
+                    </span>
+                    <span className="text-[11px] text-gray-500">{log.resource}</span>
+                    {log.resourceId && (
+                      <span className="text-[11px] text-gray-400">#{log.resourceId.slice(-6)}</span>
+                    )}
                   </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center space-x-2">
-                        <p className="text-sm font-semibold text-gray-900">{log.userName}</p>
-                        <Badge variant="secondary" className="text-xs">
-                          {log.userRole}
-                        </Badge>
-                        <Badge className={statusColors[log.status]}>{log.status}</Badge>
-                      </div>
-                      <p className="text-xs text-gray-500">{new Date(log.timestamp).toLocaleString()}</p>
-                    </div>
-
-                    <p className="text-sm text-gray-700 mb-2">
-                      <span className="font-medium">{log.action}</span> {log.resource}
-                      {log.resourceId && <span className="text-gray-500"> (ID: {log.resourceId})</span>}
-                    </p>
-
-                    <p className="text-sm text-gray-600 mb-2">{log.details}</p>
-
-                    <div className="flex items-center space-x-4 text-xs text-gray-500">
-                      <span>IP: {log.ipAddress}</span>
-                      <span className="truncate max-w-xs">{log.userAgent.split(" ")[0]}</span>
-                    </div>
+                  <p className="text-xs text-gray-600 line-clamp-1">{log.details}</p>
+                  <div className="mt-1.5 flex items-center gap-3 text-[11px] text-gray-400">
+                    <span>IP: {log.ipAddress}</span>
+                    <span>·</span>
+                    <span>{new Date(log.timestamp).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          )
-        })}
 
-        {filteredLogs.length === 0 && (
-          <Card className="p-12 text-center bg-gray-50">
-            <Activity className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No logs found</h3>
-            <p className="text-gray-600">
+                {/* Status badge */}
+                <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusConfig.badge}`}>
+                  {statusConfig.label}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-gray-200 bg-white py-16 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
+            <Activity className="h-6 w-6 text-gray-400" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-gray-900">No logs found</p>
+            <p className="mt-1 text-xs text-gray-500">
               {searchTerm || filterAction !== "all" || filterStatus !== "all"
-                ? "Try adjusting your filters to see more results."
-                : "Activity logs will appear here as users interact with the system."}
+                ? "Try adjusting your filters."
+                : "Activity will appear here as your team uses the workspace."}
             </p>
-          </Card>
-        )}
-      </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

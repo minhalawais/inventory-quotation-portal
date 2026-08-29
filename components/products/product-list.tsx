@@ -207,21 +207,18 @@ export default function ProductList({ userRole }: ProductListProps) {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="card-modern mobile-card animate-pulse">
-          <div className="h-4 bg-gray-200 rounded mb-3"></div>
-          <div className="h-10 bg-gray-200 rounded"></div>
-        </div>
+      <div className="space-y-5">
+        <div className="h-20 animate-pulse rounded-xl border border-gray-200 bg-white" />
         <div className="mobile-grid">
           {[...Array(8)].map((_, i) => (
-            <Card key={i} className="card-modern animate-pulse overflow-hidden">
-              <div className="h-48 bg-gray-200"></div>
-              <CardContent className="mobile-card">
-                <div className="h-4 bg-gray-200 rounded mb-3"></div>
-                <div className="h-4 bg-gray-200 rounded w-2/3 mb-4"></div>
-                <div className="h-10 bg-gray-200 rounded"></div>
-              </CardContent>
-            </Card>
+            <div key={i} className="animate-pulse overflow-hidden rounded-xl border border-gray-200 bg-white">
+              <div className="h-48 bg-gray-100" />
+              <div className="p-4 space-y-3">
+                <div className="h-4 rounded bg-gray-100" />
+                <div className="h-3 w-2/3 rounded bg-gray-100" />
+                <div className="h-10 rounded bg-gray-100" />
+              </div>
+            </div>
           ))}
         </div>
       </div>
@@ -248,9 +245,10 @@ export default function ProductList({ userRole }: ProductListProps) {
                 : []
 
           return (
-            <Card
+            <div
               key={product._id}
-              className="card-modern group hover:shadow-lg transition-all duration-300 overflow-hidden"
+              className="group overflow-hidden rounded-xl border border-gray-200 bg-white transition-all duration-200 hover:border-gray-300 hover:shadow-md"
+              style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.05)" }}
             >
               <div className="relative h-48 overflow-hidden">
                 <ImageSliderCompact
@@ -263,131 +261,111 @@ export default function ProductList({ userRole }: ProductListProps) {
 
                 {/* Top badges */}
                 <div className="absolute top-3 left-3 right-3 flex justify-between items-start z-40 pointer-events-none">
-                  <Badge
-                    variant="secondary"
-                    className="bg-white/90 text-secondary font-mono text-xs font-semibold pointer-events-auto"
-                  >
+                  <span className="rounded-full bg-black/50 px-2 py-0.5 font-mono text-[11px] font-semibold text-white pointer-events-auto backdrop-blur-sm">
                     #{product.productId}
-                  </Badge>
-                  <Badge
-                    className={`${
-                      product.isOutOfStock ? "status-cancelled" : "status-sent"
-                    } text-xs font-semibold pointer-events-auto`}
+                  </span>
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold pointer-events-auto ${
+                      product.isOutOfStock
+                        ? "bg-red-500/90 text-white"
+                        : "bg-emerald-500/90 text-white"
+                    }`}
                   >
-                    {product.isOutOfStock ? "Out of Stock" : "In Stock"}
-                  </Badge>
+                    {product.isOutOfStock ? "Out of stock" : "In stock"}
+                  </span>
                 </div>
               </div>
 
-              <CardContent className="mobile-card mt-4">
-                <div className="space-y-4">
-                  {/* Product Info */}
-                  <div>
-                    <h3 className="font-semibold text-secondary line-clamp-2 text-base leading-tight mb-2">
-                      {product.name}
-                    </h3>
-                    <div className="flex items-center gap-2 mb-3">
-                      <Badge variant="outline" className="border-primary/30 text-primary bg-primary/5 text-xs">
-                        {product.group}
-                      </Badge>
-                      <Badge variant="outline" className="border-secondary/30 text-secondary bg-secondary/5 text-xs">
-                        {product.subGroup}
-                      </Badge>
-                      {images.length > 1 && (
-                        <Badge variant="outline" className="border-blue-300 text-blue-700 bg-blue-50 text-xs">
-                          {images.length} pics
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Price Info */}
-                  <div className="bg-gradient-to-r from-primary/5 to-secondary/5 rounded-lg p-3 border border-primary/10">
-                    <div className="flex justify-between items-center mb-2">
-                      <div className="flex items-center gap-2">
-                        <DollarSign className="h-4 w-4 text-primary" />
-                        <span className="text-sm font-medium text-muted-foreground">Price</span>
-                      </div>
-                      <span className="text-lg font-bold text-primary">PKR {product.price.toLocaleString()}</span>
-                    </div>
-
-                    <div className="flex justify-between items-center text-xs text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <Package className="h-3 w-3" />
-                        <span>Status: {product.isOutOfStock ? "Out of Stock" : "Available"}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Hash className="h-3 w-3" />
-                        <span>ID: {product.productId}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="space-y-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleView(product)}
-                      className="w-full mobile-button hover:bg-primary/5 hover:border-primary/30 hover:text-primary"
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      View Details
-                    </Button>
-
-                    {(userRole === "manager"||userRole === "product_manager") && (
-                      <div className="grid grid-cols-2 gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleEdit(product._id)}
-                          className="mobile-button hover:bg-success/5 hover:border-success/30 hover:text-success"
-                        >
-                          <Edit className="h-4 w-4 mr-1" />
-                          Edit
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => deleteProduct(product)}
-                          className="mobile-button hover:bg-destructive/5 hover:border-destructive/30 hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4 mr-1" />
-                          Delete
-                        </Button>
-                      </div>
+              <div className="p-4 space-y-3">
+                {/* Name + badges */}
+                <div>
+                  <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-gray-950 mb-2">
+                    {product.name}
+                  </h3>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-[11px] font-medium text-indigo-700">
+                      {product.group}
+                    </span>
+                    <span className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-[11px] font-medium text-gray-600">
+                      {product.subGroup}
+                    </span>
+                    {images.length > 1 && (
+                      <span className="rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-600">
+                        {images.length} photos
+                      </span>
                     )}
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+
+                {/* Price block */}
+                <div className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                  <span className="text-xs font-medium text-gray-500">Sale price</span>
+                  <span className="text-base font-bold text-gray-950">
+                    PKR {product.price.toLocaleString()}
+                  </span>
+                </div>
+
+                {/* Actions */}
+                <div className="space-y-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleView(product)}
+                    className="h-9 w-full rounded-lg text-xs font-medium hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
+                  >
+                    <Eye className="mr-1.5 h-3.5 w-3.5" />
+                    View details
+                  </Button>
+
+                  {(userRole === "manager" || userRole === "product_manager") && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleEdit(product._id)}
+                        className="h-9 rounded-lg text-xs font-medium hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+                      >
+                        <Edit className="mr-1.5 h-3.5 w-3.5" />
+                        Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => deleteProduct(product)}
+                        className="h-9 rounded-lg text-xs font-medium hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                      >
+                        <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                        Delete
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           )
         })}
 
         {filteredProducts.length === 0 && (
-          <div className="col-span-full">
-            <Card className="card-modern text-center py-12 border-2 border-dashed border-gray-300">
-              <CardContent className="mobile-card">
-                <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                  <Package className="h-8 w-8 text-primary" />
-                </div>
-                <h3 className="text-xl font-semibold text-secondary mb-3">No products found</h3>
-                <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                  {products.length === 0
-                    ? "Get started by adding your first product to the inventory."
-                    : "No products match your filters. Try adjusting your search criteria."}
-                </p>
-                {allowedRoles.includes(userRole) && (
-                  <Button
-                    onClick={() => router.push("/products/add")}
-                    className="btn-primary mobile-button"
-                  >
-                    <Package className="mr-2 h-4 w-4" />
-                    {products.length === 0 ? "Add Your First Product" : "Add New Product"}
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
+          <div className="col-span-full flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-gray-200 bg-white py-16 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gray-100">
+              <Package className="h-7 w-7 text-gray-400" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-900">
+                {products.length === 0 ? "No products yet" : "No matching products"}
+              </p>
+              <p className="mt-1 text-xs text-gray-500">
+                {products.length === 0
+                  ? "Add your first product to the inventory."
+                  : "Try adjusting your search or filter criteria."}
+              </p>
+            </div>
+            {allowedRoles.includes(userRole) && (
+              <Button onClick={() => router.push("/products/add")} size="sm" className="mt-1 h-9 rounded-lg">
+                <Package className="mr-2 h-3.5 w-3.5" />
+                Add product
+              </Button>
+            )}
           </div>
         )}
       </div>

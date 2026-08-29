@@ -1,7 +1,6 @@
 "use client"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
@@ -13,59 +12,61 @@ import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import IPAddressManager from "./ip-address-manager"
 
+type UserWithMeta = UserStatus & {
+  allowedIps?: string[]
+  status?: string
+}
+
+const ROLE_CONFIG: Record<string, { label: string; className: string }> = {
+  manager: { label: "Manager", className: "bg-indigo-50 text-indigo-700 border border-indigo-200" },
+  rider: { label: "Rider", className: "bg-emerald-50 text-emerald-700 border border-emerald-200" },
+  product_manager: { label: "Product Mgr", className: "bg-violet-50 text-violet-700 border border-violet-200" },
+}
+
+const AVATAR_GRADIENTS = [
+  "from-indigo-500 to-violet-500",
+  "from-emerald-500 to-teal-500",
+  "from-sky-500 to-blue-500",
+  "from-amber-500 to-orange-500",
+  "from-rose-500 to-pink-500",
+]
+
 export default function UserList() {
   const { users, loading, error, refetch } = useUserStatus()
   const { toast } = useToast()
   const { data: session } = useSession()
   const router = useRouter()
-  const [selectedUser, setSelectedUser] = useState<UserStatus | null>(null)
+  const [selectedUser, setSelectedUser] = useState<UserWithMeta | null>(null)
   const [ipModalOpen, setIpModalOpen] = useState(false)
   const [updatingIPs, setUpdatingIPs] = useState(false)
 
-  const handleEdit = (userId: string) => {
-    router.push(`/users/edit/${userId}`)
-  }
+  const handleEdit = (userId: string) => router.push(`/users/edit/${userId}`)
 
-  const deleteUser = async (user: UserStatus) => {
-    if (!confirm(`Are you sure you want to delete "${user.name}"?`)) return
-
+  const deleteUser = async (user: UserWithMeta) => {
+    if (!confirm(`Remove "${user.name}" from the workspace?`)) return
     try {
-      const response = await fetch(`/api/users/${user._id}`, {
-        method: "DELETE",
-      })
-
+      const response = await fetch(`/api/users/${user._id}`, { method: "DELETE" })
       if (response.ok) {
-        refetch() // Refresh the user list
-
-        toast({
-          title: "Success",
-          description: "User deleted successfully",
-        })
+        refetch()
+        toast({ title: "User removed", description: `${user.name} has been deleted.` })
       }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete user",
-        variant: "destructive",
-      })
+    } catch {
+      toast({ title: "Error", description: "Failed to delete user", variant: "destructive" })
     }
   }
 
-  const handleManageIPs = (user: UserStatus) => {
+  const handleManageIPs = (user: UserWithMeta) => {
     setSelectedUser(user)
     setIpModalOpen(true)
   }
 
   const updateUserIPs = async (newIPs: string[]) => {
     if (!selectedUser) return
-
     setUpdatingIPs(true)
     try {
       const response = await fetch(`/api/users/${selectedUser._id}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: selectedUser.name,
           email: selectedUser.email,
@@ -74,233 +75,184 @@ export default function UserList() {
           allowedIps: newIPs,
         }),
       })
-
       if (response.ok) {
-        toast({
-          title: "Success",
-          description: "IP addresses updated successfully",
-        })
+        toast({ title: "IP addresses updated" })
         setIpModalOpen(false)
-        refetch() // Refresh the user list
-      } else {
-        throw new Error("Failed to update IP addresses")
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update IP addresses",
-        variant: "destructive",
-      })
+        refetch()
+      } else throw new Error()
+    } catch {
+      toast({ title: "Error", description: "Failed to update IP addresses", variant: "destructive" })
     } finally {
       setUpdatingIPs(false)
     }
   }
 
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case "manager":
-        return "bg-blue-100 text-blue-800 border-blue-200"
-      case "rider":
-        return "bg-green-100 text-green-800 border-green-200"
-      case "product_manager":
-        return "bg-purple-100 text-purple-800 border-purple-200"
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200"
-    }
-  }
-  const StatusBadge = ({ status }: { status: string }) => {
-    return (
-      <Badge
-        variant={status === "active" ? "default" : "destructive"}
-        className="text-xs"
-      >
-        {status === "active" ? "Active" : "Inactive"}
-      </Badge>
-    )
-  }
-  const UserIcon = ({ name }: { name: string }) => {
-    return (
-      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
-        <span className="text-white font-bold text-lg">{name.charAt(0).toUpperCase()}</span>
-      </div>
-    )
-  }
-
-  const StatusIndicator = ({ user }: { user: UserStatus }) => {
-    return (
-      <div className="flex items-center space-x-2">
-        <div className="flex items-center space-x-1">
-          <div
-            className={cn("w-2 h-2 rounded-full", user.isOnline ? "bg-green-400 animate-pulse" : "bg-gray-400")}
-          ></div>
-          <span className={cn("text-xs font-medium", user.isOnline ? "text-green-600" : "text-gray-500")}>
-            {getStatusText(user.isOnline)}
-          </span>
-        </div>
-        {!user.isOnline && user.lastSeen && (
-          <span className="text-xs text-gray-400">{getLastSeenText(user.lastSeen)}</span>
-        )}
-      </div>
-    )
-  }
-
-  const IPRestrictionBadge = ({ allowedIps }: { allowedIps: string[] }) => {
-    if (!allowedIps || allowedIps.length === 0) {
-      return (
-        <Badge variant="destructive" className="text-xs">
-          <Shield className="h-3 w-3 mr-1" />
-          No IPs
-        </Badge>
-      )
-    }
-
-    if (allowedIps.includes("*")) {
-      return (
-        <Badge variant="secondary" className="text-xs">
-          <Globe className="h-3 w-3 mr-1" />
-          All IPs
-        </Badge>
-      )
-    }
-
-    return (
-      <Badge variant="outline" className="text-xs">
-        <Shield className="h-3 w-3 mr-1" />
-        {allowedIps.length} IP{allowedIps.length !== 1 ? "s" : ""}
-      </Badge>
-    )
-  }
-
   if (loading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
-        {[...Array(6)].map((_, i) => (
-          <Card key={i} className="animate-pulse">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="w-12 h-12 bg-gray-200 rounded-full"></div>
-                <div className="flex-1">
-                  <div className="h-4 bg-gray-200 rounded mb-2"></div>
-                  <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+      <div className="space-y-4">
+        {/* Summary bar skeleton */}
+        <div className="h-14 animate-pulse rounded-xl border border-gray-200 bg-white" />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="animate-pulse rounded-xl border border-gray-200 bg-white p-5">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-11 w-11 rounded-full bg-gray-100" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-3.5 w-28 rounded bg-gray-100" />
+                  <div className="h-3 w-36 rounded bg-gray-100" />
                 </div>
               </div>
-              <div className="h-8 bg-gray-200 rounded"></div>
-            </CardContent>
-          </Card>
-        ))}
+              <div className="space-y-2">
+                <div className="h-3 w-full rounded bg-gray-100" />
+                <div className="h-3 w-4/5 rounded bg-gray-100" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="text-center py-8">
-        <p className="text-red-600 mb-4">Error loading users: {error}</p>
-        <Button onClick={refetch} variant="outline">
-          Try Again
-        </Button>
+      <div className="flex flex-col items-center gap-3 py-12 text-center">
+        <p className="text-sm text-red-600">Failed to load users: {error}</p>
+        <Button onClick={refetch} variant="outline" size="sm">Retry</Button>
       </div>
     )
   }
 
+  const onlineCount = users.filter((u) => u.isOnline).length
+
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-lg border p-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">User Status Overview</h2>
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-              <span className="text-sm font-medium text-green-600">
-                {users.filter((u) => u.isOnline).length} Online
-              </span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
-              <span className="text-sm font-medium text-gray-500">
-                {users.filter((u) => !u.isOnline).length} Offline
-              </span>
-            </div>
+      {/* Summary bar */}
+      <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-5 py-3.5" style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.04)" }}>
+        <p className="text-sm font-semibold text-gray-900">
+          {users.length} {users.length === 1 ? "member" : "members"}
+        </p>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-emerald-100" />
+            <span className="text-xs font-medium text-gray-700">{onlineCount} online</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full bg-gray-300" />
+            <span className="text-xs font-medium text-gray-500">{users.length - onlineCount} offline</span>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
-        {users.map((user) => (
-          <Card key={user._id} className="card-hover bg-white shadow-sm border-0">
-            <CardContent className="p-4 lg:p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="relative">
-                    <UserIcon name={user.name} />
-                    <div
-                      className={cn(
-                        "absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white",
-                        getStatusColor(user.isOnline),
-                      )}
-                    >
-                      {user.isOnline ? (
-                        <Wifi className="h-2 w-2 text-white m-0.5" />
-                      ) : (
-                        <WifiOff className="h-2 w-2 text-white m-0.5" />
-                      )}
+      {/* User cards grid */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {(users as UserWithMeta[]).map((user, idx) => {
+          const roleConfig = ROLE_CONFIG[user.role] ?? { label: user.role, className: "bg-gray-100 text-gray-700 border border-gray-200" }
+          const gradient = AVATAR_GRADIENTS[idx % AVATAR_GRADIENTS.length]
+
+          return (
+            <Card
+              key={user._id}
+              className="overflow-hidden rounded-xl border border-gray-200 bg-white transition-all duration-200 hover:border-gray-300"
+              style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.05)" }}
+            >
+              <CardContent className="p-5">
+                {/* User row */}
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    {/* Avatar with online indicator */}
+                    <div className="relative shrink-0">
+                      <div
+                        className={`flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br ${gradient} text-sm font-bold text-white`}
+                      >
+                        {user.name.charAt(0).toUpperCase()}
+                      </div>
+                      <span
+                        className={cn(
+                          "absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white",
+                          user.isOnline ? "bg-emerald-400" : "bg-gray-300",
+                        )}
+                      />
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-gray-900">{user.name}</p>
+                      <p className="truncate text-xs text-gray-500">{user.email}</p>
+                      <div className="mt-1 flex items-center gap-1.5">
+                        {user.isOnline ? (
+                          <>
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                            <span className="text-[11px] font-medium text-emerald-600">Online</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="h-1.5 w-1.5 rounded-full bg-gray-300" />
+                            <span className="text-[11px] text-gray-400">
+                              {user.lastSeen ? getLastSeenText(user.lastSeen) : "Offline"}
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-gray-900 truncate">{user.name}</h3>
-                    <p className="text-sm text-gray-600 truncate">{user.email}</p>
-                    <StatusIndicator user={user} />
+
+                  {/* Role badge */}
+                  <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${roleConfig.className}`}>
+                    {roleConfig.label}
+                  </span>
+                </div>
+
+                {/* Details */}
+                <div className="mb-4 space-y-2 rounded-lg border border-gray-100 bg-gray-50/70 p-3">
+                  {user.contact && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-medium uppercase tracking-wide text-gray-400">Contact</span>
+                      <span className="text-xs text-gray-700">{user.contact}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-medium uppercase tracking-wide text-gray-400">IP Access</span>
+                    <span className="text-xs text-gray-700">
+                      {!user.allowedIps || user.allowedIps.length === 0 ? (
+                        <span className="text-red-500">None configured</span>
+                      ) : user.allowedIps.includes("*") ? (
+                        <span className="flex items-center gap-1 text-emerald-600">
+                          <Globe className="h-3 w-3" /> All IPs
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-indigo-600">
+                          <Shield className="h-3 w-3" /> {user.allowedIps.length} IP{user.allowedIps.length !== 1 ? "s" : ""}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-medium uppercase tracking-wide text-gray-400">Joined</span>
+                    <span className="text-xs text-gray-700">
+                      {new Date(user.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    </span>
                   </div>
                 </div>
-                <div className="flex flex-col items-end space-y-1">
-                  <Badge className={getRoleColor(user.role)}>{user.role}</Badge>
-                  <StatusBadge status={user.status || "active"} />
-                  <IPRestrictionBadge allowedIps={user.allowedIps || ["*"]} />
-                </div>
-              </div>
 
-              {user.contact && (
-                <div className="mb-4">
-                  <p className="text-sm text-gray-600">
-                    <span className="font-medium">Contact:</span> {user.contact}
-                  </p>
-                </div>
-              )}
-
-              <div className="mb-4">
-                <p className="text-sm text-gray-600">
-                  <span className="font-medium">Allowed IPs:</span>{" "}
-                  {user.allowedIps && user.allowedIps.length > 0 ? (
-                    <span className="text-xs">
-                      {user.allowedIps.includes("*")
-                        ? "All IPs allowed"
-                        : user.allowedIps.slice(0, 2).join(", ") +
-                          (user.allowedIps.length > 2 ? ` +${user.allowedIps.length - 2} more` : "")}
-                    </span>
-                  ) : (
-                    <span className="text-red-500 text-xs">No IPs configured</span>
-                  )}
-                </p>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500">Joined {new Date(user.createdAt).toLocaleDateString()}</span>
-
-                <div className="flex space-x-2">
+                {/* Actions */}
+                <div className="flex items-center gap-2">
                   <Dialog open={ipModalOpen} onOpenChange={setIpModalOpen}>
                     <DialogTrigger asChild>
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => handleManageIPs(user)}
-                        className="hover:bg-purple-50 hover:border-purple-200 hover:text-purple-700 transition-all duration-200"
+                        className="h-8 flex-1 rounded-lg text-xs font-medium hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
+                        title="Manage IP addresses"
                       >
-                        <Settings className="h-4 w-4" />
+                        <Settings className="mr-1.5 h-3.5 w-3.5" />
+                        IPs
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-2xl">
+                    <DialogContent className="max-w-2xl rounded-xl">
                       <DialogHeader>
-                        <DialogTitle>Manage IP Addresses - {selectedUser?.name}</DialogTitle>
+                        <DialogTitle className="text-base font-semibold">
+                          Manage IP Addresses — {selectedUser?.name}
+                        </DialogTitle>
                       </DialogHeader>
                       {selectedUser && (
                         <IPAddressManager
@@ -316,38 +268,40 @@ export default function UserList() {
                     size="sm"
                     variant="outline"
                     onClick={() => handleEdit(user._id)}
-                    className="hover:bg-green-50 hover:border-green-200 hover:text-green-700 transition-all duration-200"
+                    className="h-8 flex-1 rounded-lg text-xs font-medium hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+                    title="Edit user"
                   >
-                    <Edit className="h-4 w-4" />
+                    <Edit className="mr-1.5 h-3.5 w-3.5" />
+                    Edit
                   </Button>
+
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => deleteUser(user)}
-                    className="hover:bg-red-50 hover:border-red-200 hover:text-red-700 transition-all duration-200"
+                    className="h-8 w-8 shrink-0 rounded-lg p-0 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                    title="Delete user"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          )
+        })}
 
         {users.length === 0 && (
-          <div className="col-span-full">
-            <Card className="p-8 lg:p-12 text-center bg-gradient-to-br from-gray-50 to-gray-100 border-dashed border-2 border-gray-300">
-              <Users className="mx-auto h-12 w-12 lg:h-16 lg:w-16 text-gray-400 mb-4" />
-              <h3 className="text-lg lg:text-xl font-semibold text-gray-900 mb-2">No users found</h3>
-              <p className="text-gray-600 mb-4 lg:mb-6">Add your first user to get started.</p>
-              <Button
-                onClick={() => router.push("/users/add")}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Your First User
-              </Button>
-            </Card>
+          <div className="col-span-full flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-gray-200 bg-white py-16 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gray-100">
+              <Users className="h-7 w-7 text-gray-400" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-900">No users yet</p>
+              <p className="mt-1 text-xs text-gray-500">Add your first team member to get started.</p>
+            </div>
+            <Button onClick={() => router.push("/users/add")} size="sm" className="mt-2 h-9 rounded-lg">
+              <Plus className="mr-2 h-3.5 w-3.5" /> Add user
+            </Button>
           </div>
         )}
       </div>

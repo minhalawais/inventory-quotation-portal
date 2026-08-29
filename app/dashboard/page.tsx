@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth"
 import DashboardStats from "@/components/dashboard/dashboard-stats"
 import SalesChart from "@/components/dashboard/sales-chart"
 import RecentQuotations from "@/components/dashboard/recent-quotations"
-import OutOfStockSummary from "@/components/dashboard/out-of-stock-summary" // New import
+import OutOfStockSummary from "@/components/dashboard/out-of-stock-summary"
 
 export default async function Dashboard() {
   const session = await getServerSession(authOptions)
@@ -13,28 +13,36 @@ export default async function Dashboard() {
     redirect("/auth/signin")
   }
 
+  const today = new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  })
+
   return (
-    <div className="space-y-4 lg:space-y-6">
-      {/* Welcome Section - Mobile Optimized */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-4 lg:p-6 text-white">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl lg:text-2xl font-bold mb-1 text-white">Welcome back, {session.user.name}!</h1>
-            <p className="text-blue-100 text-sm lg:text-base">Here's what's happening with your business today.</p>
-          </div>
-          <div className="hidden sm:block">
-            <div className="w-16 h-16 lg:w-20 lg:h-20 bg-white/20 rounded-2xl flex items-center justify-center">
-              <span className="text-2xl lg:text-3xl">📊</span>
-            </div>
-          </div>
+    <div className="space-y-6">
+      {/* Page header */}
+      <div className="flex flex-col gap-1 border-b border-gray-200 pb-5 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-indigo-600">
+            Operations Overview
+          </p>
+          <h1 className="mt-1 text-2xl font-bold text-gray-950 tracking-tight">
+            Welcome back, {session.user.name?.split(" ")[0]}
+          </h1>
+          <p className="mt-1 text-sm text-gray-500">{today}</p>
+        </div>
+        <div className="flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+          <span className="text-xs font-medium text-emerald-700">Live data</span>
         </div>
       </div>
 
       <DashboardStats />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <SalesChart />
-        <OutOfStockSummary /> {/* Replaced LowStockAlert with OutOfStockSummary */}
+        <OutOfStockSummary />
       </div>
 
       <RecentQuotations />

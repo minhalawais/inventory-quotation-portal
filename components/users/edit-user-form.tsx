@@ -162,7 +162,7 @@ export default function EditUserForm({ userId }: EditUserFormProps) {
   if (fetchLoading) {
     return (
       <div className="space-y-6">
-        <Card className="max-w-2xl">
+        <Card className="max-w-3xl">
           <CardContent className="p-6">
             <div className="animate-pulse space-y-4">
               <div className="h-4 bg-gray-200 rounded w-1/4"></div>
@@ -178,7 +178,7 @@ export default function EditUserForm({ userId }: EditUserFormProps) {
 
   return (
     <div className="space-y-6">
-      <Card className="max-w-2xl">
+      <Card className="max-w-3xl">
         <CardHeader>
           <CardTitle className="flex items-center">
             <Button variant="ghost" size="icon" onClick={() => router.back()} className="mr-2 hover:bg-gray-100">
@@ -283,7 +283,7 @@ export default function EditUserForm({ userId }: EditUserFormProps) {
             </div>
 
             <div className="flex space-x-4">
-              <Button type="submit" className="bg-blue-600 hover:bg-blue-700" disabled={loading}>
+              <Button type="submit" disabled={loading}>
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -302,7 +302,7 @@ export default function EditUserForm({ userId }: EditUserFormProps) {
         </CardContent>
       </Card>
 
-      <div className="max-w-2xl">
+      <div className="max-w-3xl">
         <IPAddressManager
           allowedIps={formData.allowedIps}
           onChange={(ips) => setFormData({ ...formData, allowedIps: ips })}

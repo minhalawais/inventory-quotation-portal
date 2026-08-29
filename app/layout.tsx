@@ -1,24 +1,20 @@
 import type React from "react"
-import type { Metadata } from "next"
-import { Inter } from "next/font/google"
+import type { Metadata, Viewport } from "next"
+import "@fontsource/inter/400.css"
+import "@fontsource/inter/500.css"
+import "@fontsource/inter/600.css"
+import "@fontsource/inter/700.css"
 import "./globals.css"
 import { Providers } from "@/components/providers"
 import AppLayout from "@/components/layout/app-layout"
 
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
-  weight: ["300", "400", "500", "600", "700", "800"],
-})
-
 export const metadata: Metadata = {
-  title: "Inventory & Quotation Portal",
-  description: "Professional inventory management and quotation system for modern businesses",
+  title: "InventoryOS",
+  description: "Inventory and quotation operations portal",
   keywords: "inventory, quotation, management, business, sales, professional, portal",
-  authors: [{ name: "Inventory Portal Team" }],
-  creator: "Inventory Portal",
-  publisher: "Inventory Portal",
+  authors: [{ name: "InventoryOS" }],
+  creator: "InventoryOS",
+  publisher: "InventoryOS",
   formatDetection: {
     email: false,
     address: false,
@@ -33,16 +29,12 @@ export const metadata: Metadata = {
       url: '/icon.png', // Modern browsers
     },
   },
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-  },
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#2563EB" },
-    { media: "(prefers-color-scheme: dark)", color: "#1E3A8A" },
-  ],
+}
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#111827",
 }
 
 export default function RootLayout({
@@ -51,16 +43,16 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en">
       <head>
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="Inventory Portal" />
+        <meta name="apple-mobile-web-app-title" content="InventoryOS" />
         <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="msapplication-TileColor" content="#2563EB" />
-        <meta name="theme-color" content="#2563EB" />
+        <meta name="msapplication-TileColor" content="#111827" />
+        <meta name="theme-color" content="#111827" />
       </head>
-      <body className={`${inter.className} font-inter antialiased`}>
+      <body>
         <Providers>
           <AppLayout>{children}</AppLayout>
         </Providers>

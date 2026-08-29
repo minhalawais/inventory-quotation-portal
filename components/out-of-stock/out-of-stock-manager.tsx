@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -14,12 +13,10 @@ import {
   AlertTriangle,
   RefreshCw,
   Save,
-  DollarSign,
-  Hash,
-  Calendar,
   CheckCircle2,
   XCircle,
   Package,
+  Search,
 } from "lucide-react"
 import ImageSliderCompact from "@/components/ui/image-slider-compact"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -65,7 +62,6 @@ export default function OutOfStockManager({ userRole }: OutOfStockManagerProps) 
       if (response.ok) {
         const data = await response.json()
         setProducts(data)
-        // Initialize updates map
         const initialUpdates = new Map<string, ProductUpdate>()
         data.forEach((product: Product) => {
           initialUpdates.set(product._id, {
@@ -78,7 +74,7 @@ export default function OutOfStockManager({ userRole }: OutOfStockManagerProps) 
       } else {
         throw new Error("Failed to fetch products")
       }
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to fetch out of stock products",
@@ -120,7 +116,6 @@ export default function OutOfStockManager({ userRole }: OutOfStockManagerProps) 
       toast({
         title: "No Changes",
         description: "No status changes to save",
-        variant: "default",
       })
       return
     }
@@ -145,7 +140,6 @@ export default function OutOfStockManager({ userRole }: OutOfStockManagerProps) 
       if (response.ok) {
         const result = await response.json()
 
-        // Log activity
         if (session) {
           await logActivity({
             userId: session.user.id,
@@ -160,16 +154,15 @@ export default function OutOfStockManager({ userRole }: OutOfStockManagerProps) 
         }
 
         toast({
-          title: "Success",
+          title: "Changes Saved",
           description: `Updated ${result.modifiedCount} products successfully`,
         })
 
-        // Refresh the data
         await fetchOutOfStockProducts()
       } else {
         throw new Error("Failed to update products")
       }
-    } catch (error) {
+    } catch {
       if (session) {
         await logActivity({
           userId: session.user.id,
@@ -206,7 +199,7 @@ export default function OutOfStockManager({ userRole }: OutOfStockManagerProps) 
 
     toast({
       title: "Changes Reset",
-      description: "All status changes have been reset",
+      description: "All status changes have been restored",
     })
   }
 
@@ -220,17 +213,22 @@ export default function OutOfStockManager({ userRole }: OutOfStockManagerProps) 
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="space-y-5">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="h-20 animate-pulse rounded-xl border border-gray-200 bg-white" />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {[...Array(6)].map((_, i) => (
-            <Card key={i} className="card-modern animate-pulse overflow-hidden">
-              <div className="h-48 bg-gray-200"></div>
-              <CardContent className="mobile-card">
-                <div className="h-4 bg-gray-200 rounded mb-3"></div>
-                <div className="h-4 bg-gray-200 rounded w-2/3 mb-4"></div>
-                <div className="h-10 bg-gray-200 rounded"></div>
-              </CardContent>
-            </Card>
+            <div key={i} className="animate-pulse overflow-hidden rounded-xl border border-gray-200 bg-white">
+              <div className="h-48 bg-gray-100" />
+              <div className="p-4 space-y-3">
+                <div className="h-4 rounded bg-gray-100" />
+                <div className="h-3 w-2/3 rounded bg-gray-100" />
+                <div className="h-10 rounded bg-gray-100" />
+              </div>
+            </div>
           ))}
         </div>
       </div>
@@ -239,76 +237,80 @@ export default function OutOfStockManager({ userRole }: OutOfStockManagerProps) 
 
   return (
     <div className="space-y-6">
-      {/* Stats and Actions Bar */}
+      {/* Stats bar */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="card-modern">
-          <CardContent className="mobile-card">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Out of Stock</p>
-                <p className="text-2xl font-bold text-red-600">{products.length}</p>
-              </div>
-              <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
-                <XCircle className="h-6 w-6 text-red-600" />
-              </div>
+        <div
+          className="rounded-xl border border-gray-200 border-l-4 border-l-red-500 bg-white p-4"
+          style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.04)" }}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Out of Stock</p>
+              <p className="mt-1 text-2xl font-bold text-gray-950">{products.length}</p>
             </div>
-          </CardContent>
-        </Card>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-600">
+              <XCircle className="h-5 w-5" />
+            </div>
+          </div>
+        </div>
 
-        <Card className="card-modern">
-          <CardContent className="mobile-card">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">To Restock</p>
-                <p className="text-2xl font-bold text-orange-600">
-                  {getChangedProducts().filter((p) => !p.isOutOfStock).length}
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
-                <Package className="h-6 w-6 text-orange-600" />
-              </div>
+        <div
+          className="rounded-xl border border-gray-200 border-l-4 border-l-amber-500 bg-white p-4"
+          style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.04)" }}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Marked to Restock</p>
+              <p className="mt-1 text-2xl font-bold text-gray-950">
+                {getChangedProducts().filter((p) => !p.isOutOfStock).length}
+              </p>
             </div>
-          </CardContent>
-        </Card>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+              <Package className="h-5 w-5" />
+            </div>
+          </div>
+        </div>
 
-        <Card className="card-modern">
-          <CardContent className="mobile-card">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Changes</p>
-                <p className="text-2xl font-bold text-green-600">{getChangedProducts().length}</p>
-              </div>
-              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-                <CheckCircle2 className="h-6 w-6 text-green-600" />
-              </div>
+        <div
+          className="rounded-xl border border-gray-200 border-l-4 border-l-emerald-500 bg-white p-4"
+          style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.04)" }}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Unsaved Changes</p>
+              <p className="mt-1 text-2xl font-bold text-gray-950">{getChangedProducts().length}</p>
             </div>
-          </CardContent>
-        </Card>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+              <CheckCircle2 className="h-5 w-5" />
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Search and Actions */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <div className="flex-1 max-w-md">
-          <Label htmlFor="search" className="sr-only">
-            Search products
-          </Label>
+      {/* Filter and Actions bar */}
+      <div
+        className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-gray-200 bg-white p-4"
+        style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.04)" }}
+      >
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
-            id="search"
-            placeholder="Search products..."
+            placeholder="Search stock exceptions..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full"
+            className="h-9 pl-9 rounded-lg text-sm border-gray-200"
           />
         </div>
 
-        <div className="flex gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             onClick={fetchOutOfStockProducts}
             variant="outline"
-            className="flex-1 sm:flex-none mobile-button bg-transparent"
+            size="sm"
+            className="h-9 rounded-lg"
             disabled={loading}
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
 
@@ -317,7 +319,8 @@ export default function OutOfStockManager({ userRole }: OutOfStockManagerProps) 
               <Button
                 onClick={resetChanges}
                 variant="outline"
-                className="flex-1 sm:flex-none mobile-button bg-transparent"
+                size="sm"
+                className="h-9 rounded-lg hover:bg-gray-100"
                 disabled={updating}
               >
                 Reset
@@ -325,29 +328,31 @@ export default function OutOfStockManager({ userRole }: OutOfStockManagerProps) 
 
               <Button
                 onClick={saveChanges}
-                className="flex-1 sm:flex-none btn-primary mobile-button"
-                disabled={updating || !userRole || userRole !== "manager"}
+                size="sm"
+                className="h-9 rounded-lg font-semibold"
+                style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}
+                disabled={updating || userRole !== "manager"}
               >
-                <Save className={`h-4 w-4 mr-2 ${updating ? "animate-spin" : ""}`} />
-                Save Changes
+                <Save className={`h-3.5 w-3.5 mr-1.5 ${updating ? "animate-spin" : ""}`} />
+                Save Changes ({getChangedProducts().length})
               </Button>
             </>
           )}
         </div>
       </div>
 
-      {/* Alert for pending changes */}
+      {/* Unsaved alert notification */}
       {hasChanges() && (
-        <Alert className="border-orange-200 bg-orange-50">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>
-            You have {getChangedProducts().length} unsaved changes. Don't forget to save your updates!
+        <Alert className="rounded-xl border-amber-200 bg-amber-50/80 text-amber-900">
+          <AlertTriangle className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="text-xs font-medium">
+            You have {getChangedProducts().length} unsaved stock status modifications. Click "Save Changes" to apply.
           </AlertDescription>
         </Alert>
       )}
 
-      {/* Products Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {filteredProducts.map((product) => {
           const images =
             product.imagePaths && product.imagePaths.length > 0
@@ -361,11 +366,12 @@ export default function OutOfStockManager({ userRole }: OutOfStockManagerProps) 
           const hasChanged = currentUpdate && currentUpdate.isOutOfStock !== currentUpdate.originalStatus
 
           return (
-            <Card
+            <div
               key={product._id}
-              className={`card-modern group hover:shadow-lg transition-all duration-300 overflow-hidden ${
-                hasChanged ? "ring-2 ring-orange-200 bg-orange-50/30" : ""
+              className={`group overflow-hidden rounded-xl border bg-white transition-all duration-200 ${
+                hasChanged ? "border-amber-300 ring-2 ring-amber-200" : "border-gray-200 hover:border-gray-300 hover:shadow-md"
               }`}
+              style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.05)" }}
             >
               <div className="relative h-48 overflow-hidden">
                 <ImageSliderCompact
@@ -375,118 +381,105 @@ export default function OutOfStockManager({ userRole }: OutOfStockManagerProps) 
                   showViewButton={false}
                 />
 
-                {/* Status badges */}
+                {/* Top badges */}
                 <div className="absolute top-3 left-3 right-3 flex justify-between items-start z-40 pointer-events-none">
-                  <Badge
-                    variant="secondary"
-                    className="bg-white/90 text-secondary font-mono text-xs font-semibold pointer-events-auto"
-                  >
+                  <span className="rounded-full bg-black/50 px-2 py-0.5 font-mono text-[11px] font-semibold text-white pointer-events-auto backdrop-blur-sm">
                     #{product.productId}
-                  </Badge>
-                  <div className="flex gap-2">
-                    <Badge className="status-cancelled text-xs font-semibold pointer-events-auto">Out of Stock</Badge>
+                  </span>
+                  <div className="flex items-center gap-1.5 pointer-events-auto">
+                    <span className="rounded-full bg-red-500/90 px-2.5 py-0.5 text-[11px] font-semibold text-white">
+                      Out of stock
+                    </span>
                     {hasChanged && (
-                      <Badge className="bg-orange-500 text-white text-xs font-semibold pointer-events-auto">
+                      <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[11px] font-semibold text-white">
                         Modified
-                      </Badge>
+                      </span>
                     )}
                   </div>
                 </div>
               </div>
 
-              <CardContent className="mobile-card mt-4">
-                <div className="space-y-4">
-                  {/* Product Info */}
-                  <div>
-                    <h3 className="font-semibold text-secondary line-clamp-2 text-base leading-tight mb-2">
-                      {product.name}
-                    </h3>
-                    <div className="flex items-center gap-2 mb-3">
-                      <Badge variant="outline" className="border-primary/30 text-primary bg-primary/5 text-xs">
-                        {product.group}
-                      </Badge>
-                      <Badge variant="outline" className="border-secondary/30 text-secondary bg-secondary/5 text-xs">
-                        {product.subGroup}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  {/* Price Info */}
-                  <div className="bg-gradient-to-r from-primary/5 to-secondary/5 rounded-lg p-3 border border-primary/10">
-                    <div className="flex justify-between items-center mb-2">
-                      <div className="flex items-center gap-2">
-                        <DollarSign className="h-4 w-4 text-primary" />
-                        <span className="text-sm font-medium text-muted-foreground">Price</span>
-                      </div>
-                      <span className="text-lg font-bold text-primary">PKR {product.price.toLocaleString()}</span>
-                    </div>
-
-                    <div className="flex justify-between items-center text-xs text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        <span>Added: {new Date(product.createdAt).toLocaleDateString()}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Hash className="h-3 w-3" />
-                        <span>ID: {product.productId}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Stock Status Controls */}
-                  <div className="space-y-3">
-                    <Label className="text-sm font-medium">Stock Status</Label>
-                    <div className="flex items-center space-x-3 p-3 bg-muted/30 rounded-lg border">
-                      <Checkbox
-                        id={`out-of-stock-${product._id}`}
-                        checked={currentStatus}
-                        onCheckedChange={(checked) => updateOutOfStockStatus(product._id, checked as boolean)}
-                        disabled={userRole !== "manager"}
-                      />
-                      <Label
-                        htmlFor={`out-of-stock-${product._id}`}
-                        className="text-sm font-medium cursor-pointer flex-1"
-                      >
-                        Mark as Out of Stock
-                      </Label>
-                    </div>
-
-                    {hasChanged && (
-                      <div className="text-center">
-                        <Badge variant="outline" className="border-orange-300 text-orange-700 bg-orange-50">
-                          Status will change to: {currentStatus ? "Out of Stock" : "In Stock"}
-                        </Badge>
-                      </div>
-                    )}
+              <div className="p-4 space-y-3">
+                {/* Product info */}
+                <div>
+                  <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-gray-950 mb-2">
+                    {product.name}
+                  </h3>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-[11px] font-medium text-indigo-700">
+                      {product.group}
+                    </span>
+                    <span className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-[11px] font-medium text-gray-600">
+                      {product.subGroup}
+                    </span>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+
+                {/* Price */}
+                <div className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+                  <span className="text-xs font-medium text-gray-500">Price</span>
+                  <span className="text-base font-bold text-gray-950">PKR {product.price.toLocaleString()}</span>
+                </div>
+
+                {/* Stock status toggle box */}
+                <div className="rounded-lg border border-gray-200 p-3 space-y-2 bg-gray-50/50">
+                  <div className="flex items-center justify-between">
+                    <Label
+                      htmlFor={`out-of-stock-${product._id}`}
+                      className="text-xs font-semibold text-gray-700 cursor-pointer"
+                    >
+                      Out of Stock Status
+                    </Label>
+                    <Checkbox
+                      id={`out-of-stock-${product._id}`}
+                      checked={currentStatus}
+                      onCheckedChange={(checked) => updateOutOfStockStatus(product._id, checked as boolean)}
+                      disabled={userRole !== "manager"}
+                      className="h-4 w-4 rounded border-gray-300"
+                    />
+                  </div>
+
+                  <p className="text-[11px] text-gray-500">
+                    {currentStatus
+                      ? "Item is hidden from active sales list"
+                      : "Item will be marked back in stock upon save"}
+                  </p>
+
+                  {hasChanged && (
+                    <div className="pt-1.5 border-t border-gray-200">
+                      <span className={`inline-block text-[11px] font-semibold ${
+                        currentStatus ? "text-red-600" : "text-emerald-600"
+                      }`}>
+                        Will change to: {currentStatus ? "Out of stock" : "In stock"}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           )
         })}
 
-        {filteredProducts.length === 0 && !loading && (
-          <div className="col-span-full">
-            <Card className="card-modern text-center py-12 border-2 border-dashed border-gray-300">
-              <CardContent className="mobile-card">
-                <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                  <CheckCircle2 className="h-8 w-8 text-green-600" />
-                </div>
-                <h3 className="text-xl font-semibold text-secondary mb-3">
-                  {searchTerm ? "No matching products found" : "Great! No products are out of stock"}
-                </h3>
-                <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                  {searchTerm
-                    ? "Try adjusting your search terms to find the products you're looking for."
-                    : "All your products are currently in stock. Keep up the good work!"}
-                </p>
-                {searchTerm && (
-                  <Button onClick={() => setSearchTerm("")} variant="outline" className="mobile-button">
-                    Clear Search
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
+        {filteredProducts.length === 0 && (
+          <div className="col-span-full flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-gray-200 bg-white py-16 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+              <CheckCircle2 className="h-7 w-7" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-900">
+                {searchTerm ? "No matching products" : "No stock exceptions"}
+              </p>
+              <p className="mt-1 text-xs text-gray-500">
+                {searchTerm
+                  ? "Try adjusting your search criteria."
+                  : "All products are currently marked in stock."}
+              </p>
+            </div>
+            {searchTerm && (
+              <Button onClick={() => setSearchTerm("")} variant="outline" size="sm" className="h-9 rounded-lg">
+                Clear search
+              </Button>
+            )}
           </div>
         )}
       </div>

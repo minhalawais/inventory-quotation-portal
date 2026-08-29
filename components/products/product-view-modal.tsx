@@ -177,7 +177,7 @@ export default function ProductViewModal({ product, isOpen, onClose }: ProductVi
 
           {/* Profit Analysis - Only visible to managers */}
           {isManager && product.purchaseRate && (
-            <div className="bg-gradient-to-r from-orange-50 to-yellow-50 rounded-xl p-6 border border-orange-200">
+            <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-5">
               <h3 className="text-lg font-semibold text-secondary mb-4 flex items-center gap-3">
                 <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
                   <DollarSign className="h-4 w-4 text-orange-600" />
