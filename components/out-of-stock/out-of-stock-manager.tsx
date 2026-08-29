@@ -330,7 +330,6 @@ export default function OutOfStockManager({ userRole }: OutOfStockManagerProps) 
                 onClick={saveChanges}
                 size="sm"
                 className="h-9 rounded-lg font-semibold"
-                style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}
                 disabled={updating || userRole !== "manager"}
               >
                 <Save className={`h-3.5 w-3.5 mr-1.5 ${updating ? "animate-spin" : ""}`} />

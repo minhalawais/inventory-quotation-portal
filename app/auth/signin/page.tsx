@@ -213,8 +213,7 @@ export default function SignIn() {
 
               <Button
                 type="submit"
-                className="mt-2 h-10 w-full rounded-lg font-semibold"
-                style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}
+                className="mt-2 h-10 w-full rounded-lg bg-blue-600 font-semibold hover:bg-blue-700"
                 disabled={loading}
               >
                 {loading ? (

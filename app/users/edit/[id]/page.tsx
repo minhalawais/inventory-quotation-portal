@@ -2,6 +2,10 @@ import { redirect } from "next/navigation"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import EditUserForm from "@/components/users/edit-user-form"
+import { ArrowLeft, UserCog } from "lucide-react"
+import { PageHeading } from "@/components/layout/page-heading"
+import { Button } from "@/components/ui/button"
+import Link from "next/link"
 
 interface EditUserPageProps {
   params: Promise<{ id: string }>
@@ -17,11 +21,10 @@ export default async function EditUserPage({ params }: EditUserPageProps) {
   const { id } = await params
 
   return (
-    <div className="space-y-4 lg:space-y-6">
-      <div>
-        <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Edit User</h1>
-        <p className="text-gray-600 mt-1">Update user information and permissions</p>
-      </div>
+    <div className="space-y-6">
+      <PageHeading title="Edit user" description="Update account details, permissions, and access rules." icon={UserCog} actions={
+        <Button variant="outline" asChild><Link href="/users"><ArrowLeft className="h-4 w-4" /> Back to users</Link></Button>
+      } />
       <EditUserForm userId={id} />
     </div>
   )

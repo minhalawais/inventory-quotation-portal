@@ -12,6 +12,16 @@ import { logActivity } from "@/lib/logger"
 import ProductViewModal from "./product-view-modal"
 import ProductFilters from "./product-filters"
 import ImageSliderCompact from "@/components/ui/image-slider-compact"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface Product {
   _id: string
@@ -41,6 +51,7 @@ export default function ProductList({ userRole }: ProductListProps) {
   const [loading, setLoading] = useState(true)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [viewModalOpen, setViewModalOpen] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null)
   const [filters, setFilters] = useState({
     searchTerm: "",
     selectedGroup: "all",
@@ -153,8 +164,6 @@ export default function ProductList({ userRole }: ProductListProps) {
   }
 
   const deleteProduct = async (product: Product) => {
-    if (!confirm(`Are you sure you want to delete "${product.name}"?`)) return
-
     try {
       const response = await fetch(`/api/products/${product._id}`, {
         method: "DELETE",
@@ -331,7 +340,7 @@ export default function ProductList({ userRole }: ProductListProps) {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => deleteProduct(product)}
+                        onClick={() => setDeleteTarget(product)}
                         className="h-9 rounded-lg text-xs font-medium hover:border-red-200 hover:bg-red-50 hover:text-red-600"
                       >
                         <Trash2 className="mr-1.5 h-3.5 w-3.5" />
@@ -371,6 +380,28 @@ export default function ProductList({ userRole }: ProductListProps) {
       </div>
 
       <ProductViewModal product={selectedProduct} isOpen={viewModalOpen} onClose={() => setViewModalOpen(false)} />
+      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent className="rounded-xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete product?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget?.name} will be permanently removed from the catalog. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 text-white hover:bg-red-700"
+              onClick={() => {
+                if (deleteTarget) void deleteProduct(deleteTarget)
+                setDeleteTarget(null)
+              }}
+            >
+              Delete product
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

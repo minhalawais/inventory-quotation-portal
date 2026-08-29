@@ -214,17 +214,17 @@ export default function EditProductForm({ productId }: EditProductFormProps) {
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <Card className="border-0 bg-transparent shadow-none">
-        <CardHeader className="pb-4">
+        <CardHeader className="border-b border-gray-200/90 px-0 pb-6 pt-0">
           <CardTitle className="flex items-center gap-3 text-secondary">
-            <Button variant="ghost" size="icon" onClick={() => router.back()} className="mobile-button hover:bg-muted">
+            <Button variant="outline" size="icon" onClick={() => router.back()} className="h-10 w-10 shrink-0">
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <div className="flex h-9 w-9 items-center justify-center rounded-md border bg-white">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-blue-100 bg-blue-50">
               <Edit className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <span className="text-xl font-semibold">Edit product</span>
-              <p className="text-sm text-muted-foreground font-normal">Update product information and details</p>
+              <span className="text-[22px] font-semibold tracking-[-0.025em]">Edit product</span>
+              <p className="mt-1 text-sm font-normal text-muted-foreground">Update catalog, pricing, and availability details.</p>
             </div>
           </CardTitle>
         </CardHeader>
@@ -232,7 +232,7 @@ export default function EditProductForm({ productId }: EditProductFormProps) {
         <CardContent className="p-0">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Product Categories */}
-            <div className="rounded-lg border bg-white p-5">
+            <div className="form-section">
               <h3 className="text-lg font-semibold text-secondary mb-4 flex items-center gap-3">
                 <div className="w-8 h-8 bg-secondary/10 rounded-lg flex items-center justify-center">
                   <Tag className="h-4 w-4 text-secondary" />
@@ -274,7 +274,7 @@ export default function EditProductForm({ productId }: EditProductFormProps) {
             </div>
 
             {/* Product Details */}
-            <div className="rounded-lg border bg-white p-5">
+            <div className="form-section">
               <h3 className="text-lg font-semibold text-secondary mb-4 flex items-center gap-3">
                 <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
                   <Hash className="h-4 w-4 text-primary" />
@@ -316,7 +316,7 @@ export default function EditProductForm({ productId }: EditProductFormProps) {
             </div>
 
             {/* Stock Status */}
-            <div className="rounded-lg border bg-white p-5">
+            <div className="form-section">
               <h3 className="text-lg font-semibold text-secondary mb-4 flex items-center gap-3">
                 <div className="w-8 h-8 bg-orange/10 rounded-lg flex items-center justify-center">
                   <AlertTriangle className="h-4 w-4 text-orange-600" />
@@ -346,7 +346,7 @@ export default function EditProductForm({ productId }: EditProductFormProps) {
             </div>
 
             {/* Pricing */}
-            <div className="rounded-lg border bg-white p-5">
+            <div className="form-section">
               <h3 className="text-lg font-semibold text-secondary mb-4 flex items-center gap-3">
                 <div className="w-8 h-8 bg-success/10 rounded-lg flex items-center justify-center">
                   <DollarSign className="h-4 w-4 text-success" />
@@ -402,7 +402,7 @@ export default function EditProductForm({ productId }: EditProductFormProps) {
             </div>
 
             {/* Product Images */}
-            <div className="rounded-lg border bg-white p-5">
+            <div className="form-section">
               <h3 className="text-lg font-semibold text-secondary mb-4 flex items-center gap-3">
                 <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
                   <ImageIcon className="h-4 w-4 text-gray-600" />
@@ -421,7 +421,7 @@ export default function EditProductForm({ productId }: EditProductFormProps) {
 
             {/* Summary Card */}
             {formData.name && formData.price && (
-              <div className="rounded-lg bg-gray-950 p-5 text-white">
+              <div className="rounded-xl border border-slate-800 bg-slate-950 p-5 text-white shadow-lg shadow-slate-950/5">
                 <h3 className="text-lg font-semibold mb-4">Updated Product Summary</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
                   <div>
@@ -464,8 +464,8 @@ export default function EditProductForm({ productId }: EditProductFormProps) {
             )}
 
             {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 pt-4">
-              <Button type="submit" className="btn-primary mobile-button flex-1 sm:flex-none" disabled={loading}>
+            <div className="flex flex-col-reverse gap-3 border-t border-gray-200 pt-5 sm:flex-row sm:justify-end">
+              <Button type="submit" className="mobile-button flex-1 sm:flex-none" disabled={loading}>
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

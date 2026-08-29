@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, ArrowLeft } from "lucide-react"
+import { Loader2, Save, UserRound } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { logActivity } from "@/lib/logger"
 import IPAddressManager from "./ip-address-manager"
@@ -162,7 +162,7 @@ export default function EditUserForm({ userId }: EditUserFormProps) {
   if (fetchLoading) {
     return (
       <div className="space-y-6">
-        <Card className="max-w-3xl">
+        <Card className="max-w-4xl">
           <CardContent className="p-6">
             <div className="animate-pulse space-y-4">
               <div className="h-4 bg-gray-200 rounded w-1/4"></div>
@@ -178,17 +178,16 @@ export default function EditUserForm({ userId }: EditUserFormProps) {
 
   return (
     <div className="space-y-6">
-      <Card className="max-w-3xl">
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Button variant="ghost" size="icon" onClick={() => router.back()} className="mr-2 hover:bg-gray-100">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            Edit User
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+      <Card className="max-w-4xl">
+        <CardContent className="p-5 sm:p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="flex items-center gap-3 border-b border-gray-100 pb-5">
+              <div className="form-section-icon"><UserRound className="h-4 w-4" /></div>
+              <div>
+                <h3 className="text-sm font-semibold text-gray-950">Account profile</h3>
+                <p className="mt-0.5 text-xs text-gray-500">Manage identity, role, status, and credentials.</p>
+              </div>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
@@ -253,7 +252,8 @@ export default function EditUserForm({ userId }: EditUserFormProps) {
 
             <div className="space-y-4">
               <div className="border-t pt-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Change Password (Optional)</h3>
+                <h3 className="mb-1 text-sm font-semibold text-gray-950">Change password</h3>
+                <p className="mb-4 text-xs text-gray-500">Leave both fields empty to keep the current password.</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="password">New Password</Label>
@@ -282,15 +282,15 @@ export default function EditUserForm({ userId }: EditUserFormProps) {
               </div>
             </div>
 
-            <div className="flex space-x-4">
+            <div className="flex flex-col-reverse gap-3 border-t border-gray-100 pt-5 sm:flex-row sm:justify-end">
               <Button type="submit" disabled={loading}>
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Updating...
+                    Saving changes…
                   </>
                 ) : (
-                  "Update User"
+                  <><Save className="h-4 w-4" /> Save changes</>
                 )}
               </Button>
 
@@ -302,7 +302,7 @@ export default function EditUserForm({ userId }: EditUserFormProps) {
         </CardContent>
       </Card>
 
-      <div className="max-w-3xl">
+      <div className="max-w-4xl">
         <IPAddressManager
           allowedIps={formData.allowedIps}
           onChange={(ips) => setFormData({ ...formData, allowedIps: ips })}

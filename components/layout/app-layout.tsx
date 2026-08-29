@@ -42,9 +42,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <Header onMenuClick={() => setSidebarOpen(true)} />
 
         {/* Main content with enhanced mobile spacing */}
-        <main className="custom-scrollbar safe-area-bottom flex-1 overflow-auto bg-background">
-          <div className="fade-in min-h-full px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
-            <div className="max-w-7xl mx-auto">{children}</div>
+        <main className="custom-scrollbar safe-area-bottom flex-1 overflow-auto">
+          <div className="fade-in min-h-full px-4 py-5 sm:px-6 lg:px-8 lg:py-8 xl:px-10">
+            <div className="mx-auto max-w-[1440px]">{children}</div>
           </div>
         </main>
       </div>
@@ -52,7 +52,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Enhanced mobile overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-gray-950/50 lg:hidden"
+          className="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-[2px] lg:hidden"
           onClick={() => setSidebarOpen(false)}
           onTouchStart={() => setSidebarOpen(false)}
         />

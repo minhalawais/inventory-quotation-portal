@@ -11,6 +11,16 @@ import { cn } from "@/lib/utils"
 import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import IPAddressManager from "./ip-address-manager"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 type UserWithMeta = UserStatus & {
   allowedIps?: string[]
@@ -24,11 +34,11 @@ const ROLE_CONFIG: Record<string, { label: string; className: string }> = {
 }
 
 const AVATAR_GRADIENTS = [
-  "from-indigo-500 to-violet-500",
-  "from-emerald-500 to-teal-500",
-  "from-sky-500 to-blue-500",
-  "from-amber-500 to-orange-500",
-  "from-rose-500 to-pink-500",
+  "border-blue-100 bg-blue-50 text-blue-700",
+  "border-emerald-100 bg-emerald-50 text-emerald-700",
+  "border-sky-100 bg-sky-50 text-sky-700",
+  "border-amber-100 bg-amber-50 text-amber-700",
+  "border-rose-100 bg-rose-50 text-rose-700",
 ]
 
 export default function UserList() {
@@ -39,11 +49,11 @@ export default function UserList() {
   const [selectedUser, setSelectedUser] = useState<UserWithMeta | null>(null)
   const [ipModalOpen, setIpModalOpen] = useState(false)
   const [updatingIPs, setUpdatingIPs] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<UserWithMeta | null>(null)
 
   const handleEdit = (userId: string) => router.push(`/users/edit/${userId}`)
 
   const deleteUser = async (user: UserWithMeta) => {
-    if (!confirm(`Remove "${user.name}" from the workspace?`)) return
     try {
       const response = await fetch(`/api/users/${user._id}`, { method: "DELETE" })
       if (response.ok) {
@@ -162,7 +172,7 @@ export default function UserList() {
                     {/* Avatar with online indicator */}
                     <div className="relative shrink-0">
                       <div
-                        className={`flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br ${gradient} text-sm font-bold text-white`}
+                        className={`flex h-11 w-11 items-center justify-center rounded-[12px] border ${gradient} text-sm font-bold`}
                       >
                         {user.name.charAt(0).toUpperCase()}
                       </div>
@@ -278,7 +288,7 @@ export default function UserList() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => deleteUser(user)}
+                    onClick={() => setDeleteTarget(user)}
                     className="h-8 w-8 shrink-0 rounded-lg p-0 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
                     title="Delete user"
                   >
@@ -305,6 +315,28 @@ export default function UserList() {
           </div>
         )}
       </div>
+      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent className="rounded-xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove team member?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget?.name} will lose access to this workspace and their account record will be deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 text-white hover:bg-red-700"
+              onClick={() => {
+                if (deleteTarget) void deleteUser(deleteTarget)
+                setDeleteTarget(null)
+              }}
+            >
+              Remove user
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

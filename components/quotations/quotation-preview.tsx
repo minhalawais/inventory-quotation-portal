@@ -2,8 +2,9 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Download, Send, Phone, MapPin, Calendar, Clock, FileText, Building2, Mail, Globe, User } from "lucide-react"
+import { Download, Send, Phone, MapPin, Calendar, Clock, FileText, Mail, Globe, User } from "lucide-react"
 import Image from "next/image"
+import { BrandMark } from "@/components/brand-mark"
 
 interface QuotationItem {
   productId: string
@@ -85,17 +86,14 @@ export default function QuotationPreview({ quotation, isOpen, onClose, onDownloa
         {/* PDF Preview Content */}
         <div className="bg-white border-0 sm:border rounded-none sm:rounded-xl shadow-none sm:shadow-sm">
           {/* Header */}
-          <div className="rounded-t-lg bg-gray-950 p-8 text-center text-white">
-            <div className="mb-6">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-md bg-white/10">
-                <Building2 className="h-8 w-8 text-white" />
-              </div>
-              <h1 className="text-3xl sm:text-4xl font-bold mb-2 text-white">Inventory Portal</h1>
-              <p className="text-primary-foreground/80 text-lg">Professional Inventory & Quotation Management</p>
+          <div className="rounded-t-xl bg-slate-950 p-8 text-center text-white">
+            <div className="mb-7 flex justify-center">
+              <BrandMark inverse />
             </div>
 
             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 max-w-md mx-auto">
-              <h2 className="text-2xl font-bold mb-4 text-white">QUOTATION</h2>
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-blue-300">Commercial document</p>
+              <h2 className="mb-4 text-2xl font-semibold tracking-tight text-white">Quotation</h2>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 <div className="bg-white px-4 py-2 rounded-full">
                   <span className="text-sm font-mono font-bold text-secondary">
@@ -359,11 +357,8 @@ export default function QuotationPreview({ quotation, isOpen, onClose, onDownloa
             {/* Footer */}
             <div className="rounded-lg border bg-gray-50 p-8 text-center">
               <div className="mb-6">
-                <div className="w-20 h-20 gradient-primary rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <span className="text-white font-bold text-2xl">IP</span>
-                </div>
-                <h4 className="font-bold text-secondary text-xl mb-2">Inventory Portal</h4>
-                <p className="text-muted-foreground">Professional Business Solutions</p>
+                <div className="mb-3 flex justify-center"><BrandMark /></div>
+                <p className="text-muted-foreground">Inventory and quotation operations</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm text-muted-foreground">
@@ -382,7 +377,7 @@ export default function QuotationPreview({ quotation, isOpen, onClose, onDownloa
               </div>
 
               <div className="mt-6 pt-6 border-t border-gray-200">
-                <p className="text-primary font-semibold">Thank you for your business!</p>
+                <p className="font-medium text-gray-700">Thank you for your business.</p>
               </div>
             </div>
           </div>

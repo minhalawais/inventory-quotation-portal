@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react"
 import { usePathname } from "next/navigation"
 import Link from "next/link"
-import { Menu, Plus, Bell } from "lucide-react"
+import { Menu, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 const pageNames: Record<string, { name: string; description: string }> = {
@@ -30,7 +30,11 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
 
   if (!session || pathname.startsWith("/auth")) return null
 
-  const page = pageNames[pathname] ?? { name: "Workspace", description: "InventoryOS" }
+  const page = pageNames[pathname]
+    ?? (pathname.startsWith("/products/edit/") ? { name: "Edit product", description: "Catalog maintenance" } : undefined)
+    ?? (pathname.startsWith("/users/edit/") ? { name: "Edit user", description: "Access management" } : undefined)
+    ?? (pathname.startsWith("/quotations/") ? { name: "Quotation details", description: "Customer quote" } : undefined)
+    ?? { name: "Workspace", description: "InventoryOS" }
   const quickAction = quickActions[pathname]
   const canCreate = session.user.role === "manager" || session.user.role === "product_manager"
 
@@ -42,7 +46,7 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
     .toUpperCase() ?? "U"
 
   return (
-    <header className="sticky top-0 z-30 border-b border-gray-200 bg-white/95 backdrop-blur-sm">
+    <header className="sticky top-0 z-30 border-b border-gray-200/80 bg-white/88 backdrop-blur-xl">
       {/* Mobile header */}
       <div className="px-4 py-3 lg:hidden">
         <div className="flex items-center justify-between gap-3">
@@ -68,8 +72,7 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
               </Button>
             )}
             <div
-              className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold text-white"
-              style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
+              className="flex h-9 w-9 items-center justify-center rounded-[10px] border border-blue-200 bg-blue-50 text-xs font-bold text-blue-700"
               title={session.user.name}
             >
               {initials}
@@ -79,10 +82,13 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
       </div>
 
       {/* Desktop header */}
-      <div className="hidden h-[68px] items-center justify-between gap-8 px-8 lg:flex">
+      <div className="hidden h-[72px] items-center justify-between gap-8 px-8 xl:px-10 lg:flex">
         <div className="min-w-0">
-          <h1 className="text-base font-semibold text-gray-950 leading-tight">{page.name}</h1>
-          <p className="text-xs text-gray-400 mt-0.5 leading-tight">{page.description}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-blue-600">InventoryOS</p>
+          <div className="mt-0.5 flex items-baseline gap-2">
+            <h1 className="text-sm font-semibold leading-tight text-gray-950">{page.name}</h1>
+            <span className="text-xs text-gray-400">/ {page.description}</span>
+          </div>
         </div>
 
         <div className="flex items-center gap-3">
@@ -106,10 +112,9 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
               </p>
             </div>
             <div
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
-              style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
-              title={session.user.name}
-            >
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-blue-200 bg-blue-50 text-xs font-bold text-blue-700"
+                title={session.user.name}
+              >
               {initials}
             </div>
           </div>

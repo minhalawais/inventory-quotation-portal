@@ -94,7 +94,7 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
   }
 
   return {
-    title: `Quotation for ${quotation.customerName} - Inventory Portal`,
+    title: `Quotation for ${quotation.customerName} · InventoryOS`,
     description: `Quotation #${quotation._id.slice(-8).toUpperCase()} - Total: PKR ${quotation.totalAmount.toLocaleString()}`,
   }
 }

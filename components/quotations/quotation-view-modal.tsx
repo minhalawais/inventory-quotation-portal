@@ -216,7 +216,7 @@ export default function QuotationViewModal({ quotation, isOpen, onClose }: Quota
           const quotationUrl = `${window.location.origin}/quotations/${quotation._id}`
           await navigator.share({
             title: `Quotation for ${quotation.customerName}`,
-            text: `Please review your quotation from Inventory Portal: ${quotationUrl}`,
+            text: `Please review your quotation from InventoryOS: ${quotationUrl}`,
             url: quotationUrl,
           })
         } else {

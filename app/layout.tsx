@@ -21,12 +21,12 @@ export const metadata: Metadata = {
     telephone: false,
   },
   icons: {
-    icon: '/icon.png',
-    shortcut: '/icon.png',
-    apple: '/icon.png', // For Apple devices
+    icon: '/brand-icon.svg',
+    shortcut: '/brand-icon.svg',
+    apple: '/brand-icon.svg',
     other: {
       rel: 'icon',
-      url: '/icon.png', // Modern browsers
+      url: '/brand-icon.svg',
     },
   },
 }

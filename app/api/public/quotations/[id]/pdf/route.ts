@@ -72,11 +72,11 @@ async function generateReliablePDF(quotation: any, items: any[]): Promise<Buffer
     // Header
     doc.setFontSize(24)
     doc.setTextColor(...primaryColor)
-    doc.text("Inventory Portal", 105, 25, { align: "center" })
+    doc.text("InventoryOS", 105, 25, { align: "center" })
 
     doc.setFontSize(12)
     doc.setTextColor(...secondaryColor)
-    doc.text("Professional Inventory & Quotation Management", 105, 35, { align: "center" })
+    doc.text("Inventory & Quotation Operations", 105, 35, { align: "center" })
 
     doc.setFontSize(20)
     doc.setTextColor(...primaryColor)
@@ -239,7 +239,7 @@ async function generateReliablePDF(quotation: any, items: any[]): Promise<Buffer
 
     doc.setFontSize(12)
     doc.setTextColor(...primaryColor)
-    doc.text("Inventory Portal", 105, yPos, { align: "center" })
+    doc.text("InventoryOS", 105, yPos, { align: "center" })
     yPos += 6
 
     doc.setFontSize(9)
@@ -265,7 +265,7 @@ function createSimpleTextPDF(quotation: any, items: any[]): Buffer {
   // Create a proper PDF with basic structure
   const content = `
 INVENTORY PORTAL
-Professional Inventory & Quotation Management
+Inventory & Quotation Operations
 
 QUOTATION #${quotation._id.toString().slice(-8).toUpperCase()}
 Status: ${quotation.status.toUpperCase()}
@@ -302,7 +302,7 @@ TERMS & CONDITIONS:
 • Returns are accepted within 7 days of delivery in original condition.
 
 CONTACT:
-Inventory Portal
+InventoryOS
 Email: info@inventoryportal.com | Phone: +92-300-1234567
 Website: www.inventoryportal.com
 Thank you for your business!

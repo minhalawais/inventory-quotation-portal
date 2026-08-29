@@ -112,7 +112,7 @@ async function generateReliablePDF(quotation: any, items: any[]): Promise<Buffer
     
     doc.setFontSize(9)
     doc.setFont("helvetica", "normal")
-    doc.text("Professional Inventory & Quotation Management", margins.left + 35, margins.top + 26)
+    doc.text("Inventory & Quotation Operations", margins.left + 35, margins.top + 26)
 
     // Quotation badge on the right
     doc.setFillColor(...colors.white)
@@ -527,7 +527,7 @@ function createSimpleTextPDF(quotation: any, items: any[]): Buffer {
   // Create a proper PDF with basic structure
   const content = `
 INVENTORY PORTAL
-Professional Inventory & Quotation Management
+Inventory & Quotation Operations
 
 QUOTATION #${quotation._id.toString().slice(-8).toUpperCase()}
 Status: ${quotation.status.toUpperCase()}
@@ -564,7 +564,7 @@ TERMS & CONDITIONS:
 • Returns are accepted within 7 days of delivery in original condition.
 
 CONTACT:
-Inventory Portal
+InventoryOS
 Email: info@inventoryportal.com | Phone: +92-300-1234567
 Website: www.inventoryportal.com
 Thank you for your business!

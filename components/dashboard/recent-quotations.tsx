@@ -46,11 +46,11 @@ export default function RecentQuotations() {
       .toUpperCase()
 
   const AVATAR_COLORS = [
-    "from-indigo-500 to-violet-500",
-    "from-emerald-500 to-teal-500",
-    "from-sky-500 to-blue-500",
-    "from-amber-500 to-orange-500",
-    "from-rose-500 to-pink-500",
+    "border-blue-100 bg-blue-50 text-blue-700",
+    "border-emerald-100 bg-emerald-50 text-emerald-700",
+    "border-sky-100 bg-sky-50 text-sky-700",
+    "border-amber-100 bg-amber-50 text-amber-700",
+    "border-rose-100 bg-rose-50 text-rose-700",
   ]
 
   return (
@@ -93,7 +93,7 @@ export default function RecentQuotations() {
               >
                 {/* Avatar */}
                 <div
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${AVATAR_COLORS[idx % AVATAR_COLORS.length]} text-[11px] font-bold text-white`}
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border ${AVATAR_COLORS[idx % AVATAR_COLORS.length]} text-[11px] font-bold`}
                 >
                   {getInitials(quotation.customerName)}
                 </div>

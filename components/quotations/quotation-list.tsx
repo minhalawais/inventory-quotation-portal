@@ -335,7 +335,7 @@ export default function QuotationList({ userRole }: QuotationListProps) {
           const quotationUrl = `${window.location.origin}/quotations/${quotation._id}`
           await navigator.share({
             title: `Quotation for ${quotation.customerName}`,
-            text: `Please review your quotation from Inventory Portal: ${quotationUrl}`,
+            text: `Please review your quotation from InventoryOS: ${quotationUrl}`,
             url: quotationUrl,
           });
         } else {
@@ -582,7 +582,7 @@ export default function QuotationList({ userRole }: QuotationListProps) {
                   title="Share via WhatsApp"
                 >
                   <MessageCircle className="mr-1 h-3 w-3" />
-                  WA
+                  WhatsApp
                 </Button>
                 <Button
                   size="sm"
@@ -602,7 +602,6 @@ export default function QuotationList({ userRole }: QuotationListProps) {
                   size="sm"
                   onClick={() => handleSendQuotation(quotation)}
                   className="h-9 w-full rounded-lg text-xs font-semibold"
-                  style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}
                 >
                   <Send className="mr-1.5 h-3.5 w-3.5" />
                   Send quotation

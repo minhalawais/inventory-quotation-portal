@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, ArrowLeft, User } from "lucide-react"
+import { Loader2, ShieldCheck, UserRound } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { logActivity } from "@/lib/logger"
 import IPAddressManager from "./ip-address-manager"
@@ -111,18 +111,16 @@ const [formData, setFormData] = useState({
 
   return (
     <div className="space-y-6">
-      <Card className="max-w-3xl">
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Button variant="ghost" size="icon" onClick={() => router.back()} className="mr-2 hover:bg-gray-100">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <User className="mr-2 h-5 w-5" />
-            Add New User
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+      <Card className="max-w-4xl">
+        <CardContent className="p-5 sm:p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="flex items-center gap-3 border-b border-gray-100 pb-5">
+              <div className="form-section-icon"><UserRound className="h-4 w-4" /></div>
+              <div>
+                <h3 className="text-sm font-semibold text-gray-950">Account profile</h3>
+                <p className="mt-0.5 text-xs text-gray-500">Identity, credentials, and operational role.</p>
+              </div>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
@@ -201,15 +199,15 @@ const [formData, setFormData] = useState({
               </div>
             </div>
 
-            <div className="flex space-x-4">
+            <div className="flex flex-col-reverse gap-3 border-t border-gray-100 pt-5 sm:flex-row sm:justify-end">
               <Button type="submit" disabled={loading}>
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating...
+                    Creating user…
                   </>
                 ) : (
-                  "Create User"
+                  <><ShieldCheck className="h-4 w-4" /> Create user</>
                 )}
               </Button>
 
@@ -221,7 +219,7 @@ const [formData, setFormData] = useState({
         </CardContent>
       </Card>
 
-      <div className="max-w-3xl">
+      <div className="max-w-4xl">
         <IPAddressManager
           allowedIps={formData.allowedIps}
           onChange={(ips) => setFormData({ ...formData, allowedIps: ips })}
