@@ -15,12 +15,24 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     const db = client.db("inventory_portal")
     const quotations = db.collection("quotations")
 
+    const quotation = await quotations.findOne({ _id: new ObjectId(params.id) })
+    if (!quotation) {
+      return NextResponse.json({ error: "Quotation not found" }, { status: 404 })
+    }
+
+    const items = (quotation.items || []).map((item: { quantity?: number; sentQuantity?: number }) => ({
+      ...item,
+      sentQuantity: item.quantity,
+    }))
+
     const result = await quotations.updateOne(
-      { _id: new ObjectId(params.id) },
+      { _id: quotation._id },
       {
         $set: {
+          items,
           status: "sent",
           sentAt: new Date(),
+          updatedAt: new Date(),
         },
       },
     )

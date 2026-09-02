@@ -1,9 +1,13 @@
+import { quotationRefDisplay } from "@/lib/company"
+
 export interface WhatsAppQuotation {
   _id: string
   customerName: string
   totalAmount: number
   createdAt: string | Date
   items: Array<unknown>
+  showPrices?: boolean
+  quotationNo?: string | null
 }
 
 const DEFAULT_COUNTRY_CODE = "92"
@@ -69,19 +73,21 @@ function formatQuotationAmount(value: number): string {
 
 export function generateWhatsAppMessage(quotation: WhatsAppQuotation, quotationUrl: string): string {
   const customerName = cleanInlineText(quotation.customerName) || "Customer"
-  const reference = quotation._id.slice(-8).toUpperCase()
+  const reference = quotationRefDisplay(quotation)
   const itemCount = quotation.items.length
   const itemLabel = itemCount === 1 ? "item" : "items"
+  const showPrices = quotation.showPrices !== false
+  const totalLine = showPrices ? `Total: *${formatQuotationAmount(quotation.totalAmount)}*` : "Items listed without pricing."
 
   return `Hello ${customerName},
 
 Thank you for your interest. Your quotation is ready for review.
 
 *Quotation details*
-Reference: *#${reference}*
+Reference: *${reference}*
 Issued: ${formatQuotationDate(quotation.createdAt)}
 Items: ${itemCount} ${itemLabel}
-Total: *${formatQuotationAmount(quotation.totalAmount)}*
+${totalLine}
 
 *View quotation*
 ${quotationUrl}
@@ -91,8 +97,8 @@ The link includes the complete quotation and a downloadable PDF.
 Please contact us if you need any changes or assistance.
 
 Regards,
-*InventoryOS*
-Inventory & quotation operations`
+*KK Sports*
+Sports & fitness operations`
 }
 
 export function buildWhatsAppShareUrl(

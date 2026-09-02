@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import clientPromise from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
+import { quotationShowsPrices, resolveStoredProductImages } from "@/lib/quotation"
+import { allocateQuotationNo, ensureQuotationNumbers } from "@/lib/quotation-number"
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,6 +20,8 @@ export async function GET(request: NextRequest) {
     const db = client.db("inventory_portal")
     const quotations = db.collection("quotations")
     const products = db.collection("products")
+
+    await ensureQuotationNumbers(db)
 
     let query = {}
     if (session.user.role === "rider") {
@@ -38,14 +42,15 @@ export async function GET(request: NextRequest) {
         const itemsWithDetails = await Promise.all(
           quotation.items.map(async (item: any) => {
             const product = await products.findOne({ _id: new ObjectId(item.productId) })
-            const mainImage =
-              product?.imagePaths && product.imagePaths.length > 0 ? product.imagePaths[0] : product?.imagePath || ""
+            const productImages = resolveStoredProductImages(item, product)
 
             return {
               ...item,
               productName: product?.name || "Unknown Product",
               productId: product?.productId || "N/A",
-              productImage: item.productImage || mainImage,
+              productImage: productImages[0] || "",
+              productImages,
+              sentQuantity: item.sentQuantity,
             }
           }),
         )
@@ -58,6 +63,9 @@ export async function GET(request: NextRequest) {
           
           return {
             ...quotation,
+            _id: quotation._id.toString(),
+            quotationNo: quotation.quotationNo || null,
+            showPrices: quotationShowsPrices(quotation.showPrices),
             items: itemsWithDetails,
             rider: riderInfo ? {
               _id: riderInfo._id.toString(),
@@ -85,24 +93,40 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { riderId, customerName, customerPhone, customerAddress, items, totalAmount } = body
+    const { riderId, customerName, customerPhone, customerAddress, items, totalAmount, showPrices = true } = body
 
     const client = await clientPromise
     const db = client.db("inventory_portal")
     const quotations = db.collection("quotations")
+    const createdAt = new Date()
+    await ensureQuotationNumbers(db)
+    const quotationNo = await allocateQuotationNo(db, createdAt)
 
     const result = await quotations.insertOne({
       riderId: new ObjectId(riderId),
       customerName,
       customerPhone,
       customerAddress,
-      items: items.map((item: any) => ({
-        ...item,
+      items: items.map((item: {
+        productId: string
+        quantity: number
+        price: number
+        productImage?: string
+        productImages?: string[]
+      }) => ({
         productId: new ObjectId(item.productId),
+        quantity: Number(item.quantity) || 1,
+        price: Number(item.price) || 0,
+        productImage: item.productImages?.[0] || item.productImage || "",
+        ...(Array.isArray(item.productImages)
+          ? { productImages: item.productImages.filter(Boolean) }
+          : {}),
       })),
       totalAmount,
+      showPrices: showPrices !== false,
+      quotationNo,
       status: "pending",
-      createdAt: new Date(),
+      createdAt,
     })
 
     return NextResponse.json({ id: result.insertedId })

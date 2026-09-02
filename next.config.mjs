@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    serverComponentsExternalPackages: ['puppeteer']
+    serverComponentsExternalPackages: ['puppeteer', 'canvas']
   },
   images: {
     domains: ['localhost'],
@@ -30,7 +30,7 @@ const nextConfig = {
   // Webpack configuration for Puppeteer
   webpack: (config, { isServer }) => {
     if (isServer) {
-      config.externals.push('puppeteer')
+      config.externals.push("puppeteer", "canvas")
     }
     return config
   },

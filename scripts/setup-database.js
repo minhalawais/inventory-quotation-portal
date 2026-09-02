@@ -21,6 +21,7 @@ async function setupDatabase() {
     await db.collection("users").createIndex({ email: 1 }, { unique: true })
     await db.collection("products").createIndex({ productId: 1 }, { unique: true })
     await db.collection("quotations").createIndex({ riderId: 1 })
+    await db.collection("quotations").createIndex({ quotationNo: 1 }, { unique: true, sparse: true })
 
     // Create default admin user
     const hashedPassword = await bcrypt.hash("admin123", 12)
