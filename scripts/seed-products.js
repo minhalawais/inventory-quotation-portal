@@ -4,6 +4,9 @@ const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/invent
 
 const sampleProducts = [
   {
+    department: "Hosiery",
+    category: "HS SHIRT MICRO INTERLOCK",
+    subCategory: "",
     group: "Hosiery",
     subGroup: "HS SHIRT MICRO INTERLOCK",
     productId: "1503",
@@ -15,6 +18,9 @@ const sampleProducts = [
     updatedAt: new Date(),
   },
   {
+    department: "Hosiery",
+    category: "HS SHIRT COTTON",
+    subCategory: "",
     group: "Hosiery",
     subGroup: "HS SHIRT COTTON",
     productId: "1504",
@@ -26,6 +32,9 @@ const sampleProducts = [
     updatedAt: new Date(),
   },
   {
+    department: "Garments",
+    category: "FORMAL SHIRTS",
+    subCategory: "",
     group: "Garments",
     subGroup: "FORMAL SHIRTS",
     productId: "2001",
@@ -37,6 +46,9 @@ const sampleProducts = [
     updatedAt: new Date(),
   },
   {
+    department: "Garments",
+    category: "CASUAL PANTS",
+    subCategory: "",
     group: "Garments",
     subGroup: "CASUAL PANTS",
     productId: "2002",
@@ -48,6 +60,9 @@ const sampleProducts = [
     updatedAt: new Date(),
   },
   {
+    department: "Accessories",
+    category: "BELTS",
+    subCategory: "",
     group: "Accessories",
     subGroup: "BELTS",
     productId: "3001",

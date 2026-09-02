@@ -2,6 +2,8 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import clientPromise from "@/lib/mongodb"
+import { withClassification } from "@/lib/product-classification"
+import { resolveProductClassification } from "@/lib/taxonomy"
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,7 +19,7 @@ export async function GET(request: NextRequest) {
     const db = client.db("inventory_portal")
     const products = db.collection("products")
 
-    let query = {}
+    let query: Record<string, unknown> = { isOutOfStock: { $ne: true } }
     if (lowStock === "true") {
       query = { isOutOfStock: true }
     }
@@ -25,7 +27,7 @@ export async function GET(request: NextRequest) {
     // Sort by productId in descending order (assuming higher IDs are newer)
     const result = await products.find(query).sort({ productId: -1 }).toArray()
 
-    return NextResponse.json(result)
+    return NextResponse.json(result.map((product) => withClassification(product)))
   } catch (error) {
     console.error("Products API error:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
@@ -40,15 +42,25 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { group, subGroup, productId, name, price, purchaseRate, imagePaths, isOutOfStock } = body
+    const { productId, name, price, purchaseRate, imagePaths, isOutOfStock } = body
 
     const client = await clientPromise
     const db = client.db("inventory_portal")
     const products = db.collection("products")
+    const classification = await resolveProductClassification(db, body)
+    if ("error" in classification) {
+      return NextResponse.json({ error: classification.error }, { status: classification.status })
+    }
 
-    const productData: any = {
-      group,
-      subGroup,
+    const productData: Record<string, unknown> = {
+      department: classification.department,
+      category: classification.category,
+      subCategory: classification.subCategory,
+      departmentId: classification.departmentId,
+      categoryId: classification.categoryId,
+      subCategoryId: classification.subCategoryId || undefined,
+      group: classification.department,
+      subGroup: classification.category,
       productId,
       name,
       price,
@@ -63,7 +75,7 @@ export async function POST(request: NextRequest) {
       productData.purchaseRate = purchaseRate
     }
 
-    const result = await products.insertOne(productData)
+    const result = await products.insertOne(productData as any)
 
     return NextResponse.json({ id: result.insertedId })
   } catch (error) {

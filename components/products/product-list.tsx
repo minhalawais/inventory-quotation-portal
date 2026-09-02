@@ -1,17 +1,30 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Edit, Trash2, Eye, Package, DollarSign, Hash } from "lucide-react"
+import { Edit, Trash2, Eye, Package, MoreHorizontal, Images } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { logActivity } from "@/lib/logger"
 import ProductViewModal from "./product-view-modal"
-import ProductFilters from "./product-filters"
-import ImageSliderCompact from "@/components/ui/image-slider-compact"
+import ProductFilters, { type ProductFilterState } from "./product-filters"
+import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,11 +35,22 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { EmptyState, ErrorState } from "@/components/shared/empty-state"
+import { ProductThumb } from "@/components/shared/product-thumb"
+import { RecordActions } from "@/components/shared/record-actions"
+import { RecordOpenLink } from "@/components/shared/record-open-link"
+import { ResponsiveRecordList } from "@/components/shared/responsive-record-list"
+import { Panel } from "@/components/shared/panel"
+import { classifyProduct, formatClassification } from "@/lib/product-classification"
+import { isInteractiveTarget } from "@/lib/utils"
 
 interface Product {
   _id: string
-  group: string
-  subGroup: string
+  department?: string
+  category?: string
+  subCategory?: string
+  group?: string
+  subGroup?: string
   productId: string
   name: string
   price: number
@@ -36,8 +60,14 @@ interface Product {
   isOutOfStock?: boolean
 }
 
-interface SubGroup {
-  group: string
+interface CategoryOption {
+  department: string
+  name: string
+}
+
+interface SubCategoryOption {
+  department: string
+  category: string
   name: string
 }
 
@@ -45,45 +75,65 @@ interface ProductListProps {
   userRole: string
 }
 
+function getProductImages(product: Product): string[] {
+  if (product.imagePaths && product.imagePaths.length > 0) return product.imagePaths
+  if (product.imagePath) return [product.imagePath]
+  return []
+}
+
 export default function ProductList({ userRole }: ProductListProps) {
   const [products, setProducts] = useState<Product[]>([])
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [viewModalOpen, setViewModalOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null)
-  const [filters, setFilters] = useState({
+  const [filters, setFilters] = useState<ProductFilterState>({
     searchTerm: "",
-    selectedGroup: "all",
-    selectedSubGroup: "all",
+    selectedDepartment: "all",
+    selectedCategory: "all",
+    selectedSubCategory: "all",
   })
-  const [groups, setGroups] = useState<string[]>([])
-  const [subGroups, setSubGroups] = useState<SubGroup[]>([])
+  const [departments, setDepartments] = useState<string[]>([])
+  const [categories, setCategories] = useState<CategoryOption[]>([])
+  const [subCategories, setSubCategories] = useState<SubCategoryOption[]>([])
   const { toast } = useToast()
   const { data: session } = useSession()
   const router = useRouter()
-  const allowedRoles = ["manager", "product_manager"]
+  const canMutate = userRole === "manager" || userRole === "product_manager"
 
   const fetchProducts = async () => {
     try {
       setLoading(true)
+      setFetchError(false)
       const response = await fetch("/api/products")
       if (response.ok) {
         const data = await response.json()
         setProducts(data)
-
-        // Extract unique groups
-        const uniqueGroups = [...new Set(data.map((product: Product) => product.group))]
-        setGroups(uniqueGroups.sort())
-
-        // Extract sub-groups with their groups
-        const subGroupsData = data.map((product: Product) => ({
-          group: product.group,
-          name: product.subGroup,
-        }))
-        setSubGroups(subGroupsData)
+        const classified = data.map((product: Product) => classifyProduct(product))
+        setDepartments(
+          [...new Set(classified.map((item) => item.department).filter(Boolean))].sort() as string[],
+        )
+        setCategories(
+          classified
+            .filter((item) => item.category)
+            .map((item) => ({ department: item.department, name: item.category })),
+        )
+        setSubCategories(
+          classified
+            .filter((item) => item.subCategory)
+            .map((item) => ({
+              department: item.department,
+              category: item.category,
+              name: item.subCategory,
+            })),
+        )
+      } else {
+        setFetchError(true)
       }
-    } catch (error) {
+    } catch {
+      setFetchError(true)
       toast({
         title: "Error",
         description: "Failed to fetch products",
@@ -95,19 +145,20 @@ export default function ProductList({ userRole }: ProductListProps) {
   }
 
   const applyFilters = useCallback(() => {
-    let results = [...products]
+    let results = products.filter((product) => !product.isOutOfStock)
 
-    // Apply group filter if selected and not "all"
-    if (filters.selectedGroup && filters.selectedGroup !== "all") {
-      results = results.filter((product) => product.group === filters.selectedGroup)
+    if (filters.selectedDepartment && filters.selectedDepartment !== "all") {
+      results = results.filter((product) => classifyProduct(product).department === filters.selectedDepartment)
     }
 
-    // Apply sub-group filter if selected and not "all"
-    if (filters.selectedSubGroup && filters.selectedSubGroup !== "all") {
-      results = results.filter((product) => product.subGroup === filters.selectedSubGroup)
+    if (filters.selectedCategory && filters.selectedCategory !== "all") {
+      results = results.filter((product) => classifyProduct(product).category === filters.selectedCategory)
     }
 
-    // Apply search term to the filtered results
+    if (filters.selectedSubCategory && filters.selectedSubCategory !== "all") {
+      results = results.filter((product) => classifyProduct(product).subCategory === filters.selectedSubCategory)
+    }
+
     if (filters.searchTerm) {
       const term = filters.searchTerm.toLowerCase()
       results = results.filter(
@@ -125,21 +176,12 @@ export default function ProductList({ userRole }: ProductListProps) {
   }, [])
 
   useEffect(() => {
-    if (products.length > 0) {
-      applyFilters()
-    }
+    applyFilters()
   }, [filters, products, applyFilters])
 
-  const handleFilterChange = useCallback(
-    (newFilters: {
-      searchTerm: string
-      selectedGroup: string
-      selectedSubGroup: string
-    }) => {
-      setFilters(newFilters)
-    },
-    [],
-  )
+  const handleFilterChange = useCallback((newFilters: ProductFilterState) => {
+    setFilters(newFilters)
+  }, [])
 
   const handleView = async (product: Product) => {
     setSelectedProduct(product)
@@ -170,9 +212,8 @@ export default function ProductList({ userRole }: ProductListProps) {
       })
 
       if (response.ok) {
-        // Update both products and filteredProducts state
-        setProducts(products.filter((p) => p._id !== product._id))
-        setFilteredProducts(filteredProducts.filter((p) => p._id !== product._id))
+        setProducts((prev) => prev.filter((p) => p._id !== product._id))
+        setFilteredProducts((prev) => prev.filter((p) => p._id !== product._id))
 
         if (session) {
           await logActivity({
@@ -192,7 +233,7 @@ export default function ProductList({ userRole }: ProductListProps) {
           description: "Product deleted successfully",
         })
       }
-    } catch (error) {
+    } catch {
       if (session) {
         await logActivity({
           userId: session.user.id,
@@ -216,172 +257,246 @@ export default function ProductList({ userRole }: ProductListProps) {
 
   if (loading) {
     return (
-      <div className="space-y-5">
-        <div className="h-20 animate-pulse rounded-xl border border-gray-200 bg-white" />
-        <div className="mobile-grid">
-          {[...Array(8)].map((_, i) => (
-            <div key={i} className="animate-pulse overflow-hidden rounded-xl border border-gray-200 bg-white">
-              <div className="h-48 bg-gray-100" />
-              <div className="p-4 space-y-3">
-                <div className="h-4 rounded bg-gray-100" />
-                <div className="h-3 w-2/3 rounded bg-gray-100" />
-                <div className="h-10 rounded bg-gray-100" />
+      <div className="space-y-4">
+        <Skeleton className="h-[68px] w-full rounded-lg" />
+        <Panel className="hidden overflow-hidden md:block">
+          <div className="space-y-0 divide-y divide-border">
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="flex h-14 items-center gap-4 px-4">
+                <Skeleton className="h-12 w-12 rounded-md" />
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="ml-auto h-4 w-20" />
               </div>
-            </div>
+            ))}
+          </div>
+        </Panel>
+        <div className="space-y-3 md:hidden">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-28 w-full rounded-lg" />
           ))}
         </div>
       </div>
     )
   }
 
-  return (
-    <div className="space-y-6">
-      <ProductFilters
-        onFilterChange={handleFilterChange}
-        groups={groups}
-        subGroups={subGroups}
-        currentFilters={filters}
-      />
+  if (fetchError) {
+    return (
+      <Panel>
+        <ErrorState
+          icon={Package}
+          title="Could not load products"
+          description="Check your connection and try again."
+          actionLabel="Retry"
+          onAction={() => void fetchProducts()}
+        />
+      </Panel>
+    )
+  }
 
-      <div className="mobile-grid">
+  const table = (
+    <Table>
+      <TableHeader>
+        <TableRow className="hover:bg-transparent">
+          <TableHead className="w-[52%]">Product</TableHead>
+          <TableHead>ID</TableHead>
+          <TableHead>Price</TableHead>
+          <TableHead className="text-center">Images</TableHead>
+          <TableHead className="text-right">{canMutate ? "Actions" : <span className="sr-only">Actions</span>}</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {filteredProducts.map((product) => {
-          // Handle both new imagePaths array and old imagePath string for backward compatibility
-          const images =
-            product.imagePaths && product.imagePaths.length > 0
-              ? product.imagePaths
-              : product.imagePath
-                ? [product.imagePath]
-                : []
-
+          const images = getProductImages(product)
           return (
-            <div
+            <TableRow
               key={product._id}
-              className="group overflow-hidden rounded-xl border border-gray-200 bg-white transition-all duration-200 hover:border-gray-300 hover:shadow-md"
-              style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.05)" }}
+              className="group cursor-pointer"
+              onClick={(event) => {
+                if (isInteractiveTarget(event.target)) return
+                void handleView(product)
+              }}
             >
-              <div className="relative h-48 overflow-hidden">
-                <ImageSliderCompact
-                  images={images}
-                  productName={product.name}
-                  className="w-full h-full"
-                  onViewDetails={() => handleView(product)}
-                  showViewButton={true}
-                />
-
-                {/* Top badges */}
-                <div className="absolute top-3 left-3 right-3 flex justify-between items-start z-40 pointer-events-none">
-                  <span className="rounded-full bg-black/50 px-2 py-0.5 font-mono text-[11px] font-semibold text-white pointer-events-auto backdrop-blur-sm">
-                    #{product.productId}
-                  </span>
-                  <span
-                    className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold pointer-events-auto ${
-                      product.isOutOfStock
-                        ? "bg-red-500/90 text-white"
-                        : "bg-emerald-500/90 text-white"
-                    }`}
-                  >
-                    {product.isOutOfStock ? "Out of stock" : "In stock"}
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-4 space-y-3">
-                {/* Name + badges */}
-                <div>
-                  <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-gray-950 mb-2">
-                    {product.name}
-                  </h3>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-[11px] font-medium text-indigo-700">
-                      {product.group}
-                    </span>
-                    <span className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-[11px] font-medium text-gray-600">
-                      {product.subGroup}
-                    </span>
-                    {images.length > 1 && (
-                      <span className="rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-600">
-                        {images.length} photos
-                      </span>
-                    )}
+              <TableCell>
+                <div className="flex min-w-0 items-center gap-3">
+                  <ProductThumb src={images[0]} alt={product.name} />
+                  <div className="min-w-0">
+                    <RecordOpenLink
+                      onClick={() => void handleView(product)}
+                      className="block truncate text-sm"
+                    >
+                      {product.name}
+                    </RecordOpenLink>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {formatClassification(classifyProduct(product)) || "Unclassified"}
+                    </p>
                   </div>
                 </div>
-
-                {/* Price block */}
-                <div className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
-                  <span className="text-xs font-medium text-gray-500">Sale price</span>
-                  <span className="text-base font-bold text-gray-950">
-                    PKR {product.price.toLocaleString()}
-                  </span>
-                </div>
-
-                {/* Actions */}
-                <div className="space-y-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleView(product)}
-                    className="h-9 w-full rounded-lg text-xs font-medium hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
-                  >
-                    <Eye className="mr-1.5 h-3.5 w-3.5" />
-                    View details
-                  </Button>
-
-                  {(userRole === "manager" || userRole === "product_manager") && (
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleEdit(product._id)}
-                        className="h-9 rounded-lg text-xs font-medium hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
-                      >
-                        <Edit className="mr-1.5 h-3.5 w-3.5" />
-                        Edit
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setDeleteTarget(product)}
-                        className="h-9 rounded-lg text-xs font-medium hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-                      >
-                        <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                        Delete
-                      </Button>
-                    </div>
+              </TableCell>
+              <TableCell>
+                <span className="font-mono text-xs text-muted-foreground">#{product.productId}</span>
+              </TableCell>
+              <TableCell>
+                <span className="text-sm font-medium tabular-nums">PKR {product.price.toLocaleString()}</span>
+              </TableCell>
+              <TableCell className="text-center">
+                <span className="inline-flex items-center gap-1 text-xs tabular-nums text-muted-foreground">
+                  <Images className="h-3.5 w-3.5" aria-hidden />
+                  {images.length}
+                </span>
+              </TableCell>
+              <TableCell className="text-right" data-no-row-click>
+                <RecordActions>
+                  {canMutate && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-9"
+                      onClick={() => handleEdit(product._id)}
+                    >
+                      <Edit className="mr-1.5 h-3.5 w-3.5" />
+                      Edit
+                    </Button>
                   )}
-                </div>
-              </div>
-            </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button type="button" variant="ghost" size="icon" className="h-9 w-9" aria-label="More actions">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-44">
+                      <DropdownMenuItem onClick={() => void handleView(product)}>
+                        <Eye className="mr-2 h-3.5 w-3.5" />
+                        Open product
+                      </DropdownMenuItem>
+                      {canMutate && (
+                        <>
+                          <DropdownMenuItem onClick={() => handleEdit(product._id)}>
+                            <Edit className="mr-2 h-3.5 w-3.5" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => setDeleteTarget(product)}
+                          >
+                            <Trash2 className="mr-2 h-3.5 w-3.5" />
+                            Delete
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </RecordActions>
+              </TableCell>
+            </TableRow>
           )
         })}
+      </TableBody>
+    </Table>
+  )
 
-        {filteredProducts.length === 0 && (
-          <div className="col-span-full flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-gray-200 bg-white py-16 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gray-100">
-              <Package className="h-7 w-7 text-gray-400" />
+  const cards = filteredProducts.map((product) => {
+    const images = getProductImages(product)
+    return (
+      <div
+        key={product._id}
+        className="cursor-pointer rounded-lg border border-border bg-card p-3"
+        onClick={(event) => {
+          if (isInteractiveTarget(event.target)) return
+          void handleView(product)
+        }}
+      >
+        <div className="flex gap-3">
+          <ProductThumb src={images[0]} alt={product.name} className="h-24 w-24" />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <RecordOpenLink onClick={() => void handleView(product)} className="line-clamp-2 text-sm leading-5">
+                  {product.name}
+                </RecordOpenLink>
+                <p className="mt-0.5 font-mono text-xs text-muted-foreground">#{product.productId}</p>
+              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0" aria-label="Actions">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44">
+                  <DropdownMenuItem onClick={() => void handleView(product)}>
+                    <Eye className="mr-2 h-3.5 w-3.5" />
+                    Open product
+                  </DropdownMenuItem>
+                  {canMutate && (
+                    <>
+                      <DropdownMenuItem onClick={() => handleEdit(product._id)}>
+                        <Edit className="mr-2 h-3.5 w-3.5" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => setDeleteTarget(product)}
+                      >
+                        <Trash2 className="mr-2 h-3.5 w-3.5" />
+                        Delete
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
-            <div>
-              <p className="text-sm font-semibold text-gray-900">
-                {products.length === 0 ? "No products yet" : "No matching products"}
-              </p>
-              <p className="mt-1 text-xs text-gray-500">
-                {products.length === 0
-                  ? "Add your first product to the inventory."
-                  : "Try adjusting your search or filter criteria."}
-              </p>
+            <p className="mt-2 text-sm font-semibold tabular-nums">PKR {product.price.toLocaleString()}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                {formatClassification(classifyProduct(product)) || "Unclassified"} · {images.length} img
+              </span>
             </div>
-            {allowedRoles.includes(userRole) && (
-              <Button onClick={() => router.push("/products/add")} size="sm" className="mt-1 h-9 rounded-lg">
-                <Package className="mr-2 h-3.5 w-3.5" />
-                Add product
-              </Button>
-            )}
           </div>
-        )}
+        </div>
       </div>
+    )
+  })
 
-      <ProductViewModal product={selectedProduct} isOpen={viewModalOpen} onClose={() => setViewModalOpen(false)} />
+  return (
+    <div className="space-y-4">
+      <ProductFilters
+        onFilterChange={handleFilterChange}
+        departments={departments}
+        categories={categories}
+        subCategories={subCategories}
+        currentFilters={filters}
+        resultCount={filteredProducts.length}
+      />
+
+      {filteredProducts.length === 0 ? (
+        <Panel>
+          <EmptyState
+            icon={Package}
+            title={products.length === 0 ? "No products yet" : "No matching products"}
+            description={
+              products.length === 0
+                ? "Add your first product to the catalog."
+                : "Try adjusting your search or filters."
+            }
+            actionLabel={canMutate && products.length === 0 ? "Add product" : undefined}
+            onAction={canMutate && products.length === 0 ? () => router.push("/products/add") : undefined}
+          />
+        </Panel>
+      ) : (
+        <ResponsiveRecordList table={table} cards={cards} />
+      )}
+
+      <ProductViewModal
+        product={selectedProduct}
+        isOpen={viewModalOpen}
+        onClose={() => setViewModalOpen(false)}
+        onEdit={canMutate ? handleEdit : undefined}
+      />
+
       <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-        <AlertDialogContent className="rounded-xl">
+        <AlertDialogContent className="max-w-[440px]">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete product?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -391,7 +506,7 @@ export default function ProductList({ userRole }: ProductListProps) {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-red-600 text-white hover:bg-red-700"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => {
                 if (deleteTarget) void deleteProduct(deleteTarget)
                 setDeleteTarget(null)

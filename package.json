@@ -11,6 +11,7 @@
     "clean": "node -e \"const fs=require('fs');const p='.next';if(fs.existsSync(p)){fs.rmSync(p,{recursive:true,force:true});console.log('.next cleared');}else{console.log('.next not found, skipping');}\"",
     "setup-database": "node scripts/setup-database.js",
     "seed-products": "node scripts/seed-products.js",
+    "seed-taxonomy": "node scripts/seed-taxonomy.js",
     "postinstall": "npm run setup-database"
   },
   "dependencies": {

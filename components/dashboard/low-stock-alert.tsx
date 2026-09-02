@@ -37,7 +37,7 @@ export default function LowStockAlert() {
   }
 
   const handleCardClick = () => {
-    router.push("/products")
+    router.push("/out-of-stock")
   }
 
   return (

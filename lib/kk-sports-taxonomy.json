@@ -1,0 +1,111 @@
+[
+  {
+    "name": "Footwear",
+    "categories": [
+      { "name": "Cricket Shoes", "subcategories": [] },
+      { "name": "Football Shoes", "subcategories": [] },
+      { "name": "Badminton Shoes", "subcategories": [] },
+      { "name": "Padel Shoes", "subcategories": [] },
+      { "name": "Skating Shoes", "subcategories": [] },
+      { "name": "Men Shoes", "subcategories": [] },
+      { "name": "Women Shoes", "subcategories": [] }
+    ]
+  },
+  {
+    "name": "Apparels",
+    "categories": [
+      { "name": "Men Tops", "subcategories": [] },
+      { "name": "Men Bottoms", "subcategories": [] },
+      { "name": "Men Track Suits", "subcategories": [] },
+      { "name": "Men Accessories", "subcategories": [] },
+      { "name": "Women Tops", "subcategories": [] },
+      { "name": "Women Accessories", "subcategories": [] }
+    ]
+  },
+  {
+    "name": "Fitness Accessories",
+    "categories": [
+      { "name": "Belts", "subcategories": [] },
+      { "name": "Water Bottles", "subcategories": [] },
+      { "name": "Yoga Mats", "subcategories": [] },
+      { "name": "Bags", "subcategories": [] },
+      { "name": "Massagers", "subcategories": [] },
+      { "name": "Grips", "subcategories": [] },
+      { "name": "Gym Accessories", "subcategories": [] }
+    ]
+  },
+  {
+    "name": "Gym Equipment",
+    "categories": [
+      { "name": "Treadmills", "subcategories": [] },
+      { "name": "Home Gym", "subcategories": [] },
+      { "name": "Plates", "subcategories": [] },
+      { "name": "Dumbbells", "subcategories": [] }
+    ]
+  },
+  {
+    "name": "Cricket",
+    "categories": [
+      { "name": "Tape Ball", "subcategories": ["Bats", "Balls"] },
+      { "name": "Hard Ball", "subcategories": ["Bats", "Balls"] }
+    ]
+  },
+  {
+    "name": "Football",
+    "categories": [
+      { "name": "Football Kits", "subcategories": [] },
+      { "name": "Footballs", "subcategories": [] }
+    ]
+  },
+  {
+    "name": "Badminton",
+    "categories": [
+      { "name": "Rackets", "subcategories": [] },
+      { "name": "Shuttle", "subcategories": [] },
+      { "name": "Net / Pole", "subcategories": [] }
+    ]
+  },
+  {
+    "name": "Padel",
+    "categories": [
+      { "name": "Rackets", "subcategories": [] },
+      { "name": "Balls", "subcategories": [] },
+      { "name": "Grips", "subcategories": [] },
+      { "name": "Accessories", "subcategories": [] },
+      { "name": "Apparel", "subcategories": [] }
+    ]
+  },
+  {
+    "name": "Basketball",
+    "categories": [
+      { "name": "Basketballs", "subcategories": [] }
+    ]
+  },
+  {
+    "name": "Skating",
+    "categories": [
+      { "name": "Scooters", "subcategories": [] }
+    ]
+  },
+  {
+    "name": "Swimming",
+    "categories": [
+      { "name": "Caps", "subcategories": [] },
+      { "name": "Tubes / Pools", "subcategories": [] },
+      { "name": "Goggles", "subcategories": [] },
+      { "name": "Costumes", "subcategories": [] },
+      { "name": "Jackets", "subcategories": [] },
+      { "name": "Accessories", "subcategories": [] }
+    ]
+  },
+  {
+    "name": "Indoor Games",
+    "categories": [
+      { "name": "Table Tennis", "subcategories": ["Sets", "Rackets", "Balls", "Nets"] },
+      { "name": "Ludo", "subcategories": [] },
+      { "name": "Chess", "subcategories": [] },
+      { "name": "Poker", "subcategories": [] },
+      { "name": "Carrom", "subcategories": [] }
+    ]
+  }
+]

@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import clientPromise from "@/lib/mongodb"
+import { withClassification } from "@/lib/product-classification"
 
 export const dynamic = "force-dynamic"
 
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
     // Get out of stock products (isOutOfStock = true)
     const outOfStockProducts = await products.find({ isOutOfStock: true }).toArray()
 
-    return NextResponse.json(outOfStockProducts)
+    return NextResponse.json(outOfStockProducts.map((product) => withClassification(product)))
   } catch (error) {
     console.error("Out of stock products API error:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })

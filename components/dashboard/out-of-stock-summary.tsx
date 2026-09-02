@@ -2,7 +2,14 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Package, XCircle, ArrowRight } from "lucide-react"
+import { PackageX, ArrowRight } from "lucide-react"
+
+import { Panel, PanelBody, PanelHeader } from "@/components/shared/panel"
+import { ProductThumb } from "@/components/shared/product-thumb"
+import { StatusBadge } from "@/components/shared/status-badge"
+import { EmptyState } from "@/components/shared/empty-state"
+import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface OutOfStockProduct {
   _id: string
@@ -17,7 +24,9 @@ export default function OutOfStockSummary() {
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
-  useEffect(() => { fetchOutOfStockProducts() }, [])
+  useEffect(() => {
+    void fetchOutOfStockProducts()
+  }, [])
 
   const fetchOutOfStockProducts = async () => {
     try {
@@ -31,28 +40,21 @@ export default function OutOfStockSummary() {
   }
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white" style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.05)" }}>
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+    <Panel className="h-full">
+      <PanelHeader className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-gray-900">Stock Exceptions</h3>
-          <p className="text-xs text-gray-500 mt-0.5">Products marked out of stock</p>
+          <h3 className="text-sm font-semibold text-foreground">Stock exceptions</h3>
+          <p className="mt-0.5 text-xs text-muted-foreground">Products marked out of stock</p>
         </div>
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50">
-          <XCircle className="h-4 w-4 text-red-500" />
-        </div>
-      </div>
-
-      <div className="p-5">
+        <PackageX className="h-4 w-4 text-destructive" aria-hidden />
+      </PanelHeader>
+      <PanelBody>
         {loading ? (
           <div className="space-y-3">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="flex animate-pulse items-center gap-3">
-                <div className="h-9 w-9 rounded-lg bg-gray-100 shrink-0" />
-                <div className="flex-1 space-y-1.5">
-                  <div className="h-3 w-32 rounded bg-gray-100" />
-                  <div className="h-2.5 w-20 rounded bg-gray-100" />
-                </div>
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <Skeleton className="h-10 w-10 rounded-md" />
+                <Skeleton className="h-4 flex-1" />
               </div>
             ))}
           </div>
@@ -61,57 +63,41 @@ export default function OutOfStockSummary() {
             {outOfStockProducts.slice(0, 4).map((product) => {
               const image = product.imagePaths?.[0] ?? product.imagePath
               return (
-                <div
-                  key={product._id}
-                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-gray-50"
-                >
-                  {/* Thumbnail or icon */}
-                  <div className="h-9 w-9 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
-                    {image ? (
-                      <img src={image} alt={product.name} className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center">
-                        <Package className="h-4 w-4 text-gray-400" />
-                      </div>
-                    )}
-                  </div>
-
+                <div key={product._id} className="flex items-center gap-3 rounded-md px-1 py-2">
+                  <ProductThumb src={image} alt={product.name} className="h-10 w-10" />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-gray-900">{product.name}</p>
-                    <p className="text-[11px] font-medium text-gray-400">#{product.productId}</p>
+                    <p className="truncate text-sm font-medium">{product.name}</p>
+                    <p className="font-mono text-[11px] text-muted-foreground">#{product.productId}</p>
                   </div>
-
-                  <span className="shrink-0 rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-600">
-                    Out of stock
-                  </span>
+                  <StatusBadge tone="danger">Out of stock</StatusBadge>
                 </div>
               )
             })}
-
             {outOfStockProducts.length > 4 && (
-              <p className="mt-2 text-center text-xs text-gray-400">
-                +{outOfStockProducts.length - 4} more items
+              <p className="pt-1 text-center text-xs text-muted-foreground">
+                +{outOfStockProducts.length - 4} more
               </p>
             )}
-
-            <button
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-3 h-9 w-full"
               onClick={() => router.push("/out-of-stock")}
-              className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2 text-xs font-medium text-gray-600 transition-colors hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
             >
               Manage stock exceptions
-              <ArrowRight className="h-3 w-3" />
-            </button>
+              <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+            </Button>
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center gap-2 py-8">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50">
-              <Package className="h-5 w-5 text-emerald-500" />
-            </div>
-            <p className="text-sm font-medium text-gray-700">All products in stock</p>
-            <p className="text-xs text-gray-400">No stock exceptions at this time</p>
-          </div>
+          <EmptyState
+            icon={PackageX}
+            title="All products in stock"
+            description="No stock exceptions at this time."
+            className="py-8"
+          />
         )}
-      </div>
-    </div>
+      </PanelBody>
+    </Panel>
   )
 }

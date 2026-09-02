@@ -3,22 +3,34 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { Loader2 } from "lucide-react"
+import { useSession } from "next-auth/react"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, ArrowLeft, Tag, Hash, DollarSign, ImageIcon, Edit, ShoppingCart, AlertTriangle } from "lucide-react"
-import { useSession } from "next-auth/react"
 import { logActivity } from "@/lib/logger"
 import MultipleImageUpload from "@/components/ui/multiple-image-upload"
+import { FormSection, FormActions } from "@/components/shared/form-section"
+import { Panel, PanelBody } from "@/components/shared/panel"
+import { ProductEditorShell } from "@/components/products/product-editor-shell"
+import { ClassificationFields, type ClassificationFormValue } from "@/components/products/classification-fields"
+import { useTaxonomy } from "@/components/products/use-taxonomy"
+import { classifyProduct } from "@/lib/product-classification"
 
 interface Product {
   _id: string
-  group: string
-  subGroup: string
+  department?: string
+  category?: string
+  subCategory?: string
+  departmentId?: string
+  categoryId?: string
+  subCategoryId?: string
+  group?: string
+  subGroup?: string
   productId: string
   name: string
   price: number
@@ -34,8 +46,12 @@ interface EditProductFormProps {
 
 export default function EditProductForm({ productId }: EditProductFormProps) {
   const [formData, setFormData] = useState({
-    group: "",
-    subGroup: "",
+    department: "",
+    category: "",
+    subCategory: "",
+    departmentId: "",
+    categoryId: "",
+    subCategoryId: "",
     productId: "",
     name: "",
     price: "",
@@ -44,27 +60,43 @@ export default function EditProductForm({ productId }: EditProductFormProps) {
   })
   const [existingImages, setExistingImages] = useState<string[]>([])
   const [newImages, setNewImages] = useState<File[]>([])
+  const [newPreviewUrl, setNewPreviewUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [fetchLoading, setFetchLoading] = useState(true)
   const router = useRouter()
   const { toast } = useToast()
   const { data: session } = useSession()
+  const { tree, loading: taxonomyLoading } = useTaxonomy()
 
-  // Check if user is manager to show purchase rate field
   const isManager = session?.user?.role === "manager" || session?.user?.role === "product_manager"
 
   useEffect(() => {
     fetchProduct()
   }, [productId])
 
+  useEffect(() => {
+    if (newImages[0]) {
+      const url = URL.createObjectURL(newImages[0])
+      setNewPreviewUrl(url)
+      return () => URL.revokeObjectURL(url)
+    }
+    setNewPreviewUrl(null)
+  }, [newImages])
+
   const fetchProduct = async () => {
     try {
       const response = await fetch(`/api/products/${productId}`)
       if (response.ok) {
         const product: Product = await response.json()
+        const classification = classifyProduct(product)
+
         setFormData({
-          group: product.group,
-          subGroup: product.subGroup,
+          department: classification.department,
+          category: classification.category,
+          subCategory: classification.subCategory,
+          departmentId: classification.departmentId || "",
+          categoryId: classification.categoryId || "",
+          subCategoryId: classification.subCategoryId || "",
           productId: product.productId,
           name: product.name,
           price: product.price.toString(),
@@ -72,7 +104,6 @@ export default function EditProductForm({ productId }: EditProductFormProps) {
           isOutOfStock: product.isOutOfStock || false,
         })
 
-        // Handle both new imagePaths array and old imagePath string for backward compatibility
         const images =
           product.imagePaths && product.imagePaths.length > 0
             ? product.imagePaths
@@ -89,7 +120,7 @@ export default function EditProductForm({ productId }: EditProductFormProps) {
         })
         router.push("/products")
       }
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to fetch product",
@@ -102,12 +133,36 @@ export default function EditProductForm({ productId }: EditProductFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!formData.department || !formData.category) {
+      toast({
+        title: "Classification required",
+        description: "Select a department and category.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const selectedDepartment =
+      tree.departments.find((item) => item._id === formData.departmentId) ||
+      tree.departments.find((item) => item.name === formData.department)
+    const selectedCategory =
+      selectedDepartment?.categories.find((item) => item._id === formData.categoryId) ||
+      selectedDepartment?.categories.find((item) => item.name === formData.category)
+    if (selectedCategory && selectedCategory.subcategories.length > 0 && !formData.subCategory) {
+      toast({
+        title: "Subcategory required",
+        description: "Select a subcategory for this category.",
+        variant: "destructive",
+      })
+      return
+    }
+
     setLoading(true)
 
     try {
       let newImagePaths: string[] = []
 
-      // Upload new images
       if (newImages.length > 0) {
         const uploadPromises = newImages.map(async (image) => {
           const imageFormData = new FormData()
@@ -129,7 +184,6 @@ export default function EditProductForm({ productId }: EditProductFormProps) {
         newImagePaths = results.filter((path) => path !== null)
       }
 
-      // Combine existing images with new uploaded images
       const allImagePaths = [...existingImages, ...newImagePaths]
 
       const response = await fetch(`/api/products/${productId}`, {
@@ -145,8 +199,8 @@ export default function EditProductForm({ productId }: EditProductFormProps) {
         }),
       })
 
+      const data = await response.json()
       if (response.ok) {
-        // Log activity
         if (session) {
           await logActivity({
             userId: session.user.id,
@@ -166,10 +220,9 @@ export default function EditProductForm({ productId }: EditProductFormProps) {
         })
         router.push("/products")
       } else {
-        throw new Error("Failed to update product")
+        throw new Error(data.error || "Failed to update product")
       }
     } catch (error) {
-      // Log error activity
       if (session) {
         await logActivity({
           userId: session.user.id,
@@ -185,7 +238,7 @@ export default function EditProductForm({ productId }: EditProductFormProps) {
 
       toast({
         title: "Error",
-        description: "Failed to update product",
+        description: error instanceof Error ? error.message : "Failed to update product",
         variant: "destructive",
       })
     } finally {
@@ -195,302 +248,158 @@ export default function EditProductForm({ productId }: EditProductFormProps) {
 
   if (fetchLoading) {
     return (
-      <div className="mobile-container">
-        <Card className="card-modern">
-          <CardContent className="mobile-card">
-            <div className="animate-pulse space-y-6">
-              <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-              <div className="h-10 bg-gray-200 rounded"></div>
-              <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-              <div className="h-10 bg-gray-200 rounded"></div>
-              <div className="h-32 bg-gray-200 rounded"></div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="mx-auto max-w-[1120px] space-y-4">
+        <Skeleton className="h-14 w-72" />
+        <Panel>
+          <PanelBody className="space-y-4">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-32 w-full" />
+          </PanelBody>
+        </Panel>
       </div>
     )
   }
 
+  const summaryImage = existingImages[0] || newPreviewUrl
+
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <Card className="border-0 bg-transparent shadow-none">
-        <CardHeader className="border-b border-gray-200/90 px-0 pb-6 pt-0">
-          <CardTitle className="flex items-center gap-3 text-secondary">
-            <Button variant="outline" size="icon" onClick={() => router.back()} className="h-10 w-10 shrink-0">
-              <ArrowLeft className="h-4 w-4" />
+    <form onSubmit={handleSubmit}>
+      <ProductEditorShell
+        title="Edit product"
+        description="Update catalog, pricing, and availability details."
+        summary={{
+          name: formData.name,
+          productId: formData.productId,
+          department: formData.department,
+          category: formData.category,
+          subCategory: formData.subCategory,
+          price: formData.price,
+          purchaseRate: formData.purchaseRate,
+          isOutOfStock: formData.isOutOfStock,
+          imageSrc: summaryImage,
+          showPurchaseRate: isManager,
+        }}
+        footer={
+          <FormActions className="border-0 pt-0">
+            <Button type="button" variant="outline" onClick={() => router.back()} disabled={loading}>
+              Cancel
             </Button>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-blue-100 bg-blue-50">
-              <Edit className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <span className="text-[22px] font-semibold tracking-[-0.025em]">Edit product</span>
-              <p className="mt-1 text-sm font-normal text-muted-foreground">Update catalog, pricing, and availability details.</p>
-            </div>
-          </CardTitle>
-        </CardHeader>
+            <Button type="submit" disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                "Save changes"
+              )}
+            </Button>
+          </FormActions>
+        }
+      >
+        <FormSection title="Classification" description="Department, category, and subcategory.">
+          <ClassificationFields
+            value={formData}
+            onChange={(next: ClassificationFormValue) => setFormData((prev) => ({ ...prev, ...next }))}
+            tree={tree}
+            loading={taxonomyLoading}
+          />
+        </FormSection>
 
-        <CardContent className="p-0">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Product Categories */}
-            <div className="form-section">
-              <h3 className="text-lg font-semibold text-secondary mb-4 flex items-center gap-3">
-                <div className="w-8 h-8 bg-secondary/10 rounded-lg flex items-center justify-center">
-                  <Tag className="h-4 w-4 text-secondary" />
-                </div>
-                Product Categories
-              </h3>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="group" className="text-sm font-medium text-secondary">
-                    Product Group
-                  </Label>
-                  <Select value={formData.group} onValueChange={(value) => setFormData({ ...formData, group: value })}>
-                    <SelectTrigger className="input-modern mobile-input">
-                      <SelectValue placeholder="Select product group" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="hosiery">Hosiery</SelectItem>
-                      <SelectItem value="garments">Garments</SelectItem>
-                      <SelectItem value="accessories">Accessories</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="subGroup" className="text-sm font-medium text-secondary">
-                    Sub-Group
-                  </Label>
-                  <Input
-                    id="subGroup"
-                    value={formData.subGroup}
-                    onChange={(e) => setFormData({ ...formData, subGroup: e.target.value })}
-                    required
-                    className="input-modern mobile-input"
-                    placeholder="Enter sub-group"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Product Details */}
-            <div className="form-section">
-              <h3 className="text-lg font-semibold text-secondary mb-4 flex items-center gap-3">
-                <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <Hash className="h-4 w-4 text-primary" />
-                </div>
-                Product Details
-              </h3>
-
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="productId" className="text-sm font-medium text-secondary">
-                      Product ID
-                    </Label>
-                    <Input
-                      id="productId"
-                      value={formData.productId}
-                      onChange={(e) => setFormData({ ...formData, productId: e.target.value })}
-                      required
-                      className="input-modern mobile-input font-mono"
-                      placeholder="Enter unique product ID"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="name" className="text-sm font-medium text-secondary">
-                      Product Name
-                    </Label>
-                    <Input
-                      id="name"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      required
-                      className="input-modern mobile-input"
-                      placeholder="Enter descriptive product name"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Stock Status */}
-            <div className="form-section">
-              <h3 className="text-lg font-semibold text-secondary mb-4 flex items-center gap-3">
-                <div className="w-8 h-8 bg-orange/10 rounded-lg flex items-center justify-center">
-                  <AlertTriangle className="h-4 w-4 text-orange-600" />
-                </div>
-                Stock Status
-              </h3>
-
-              <div className="flex items-center space-x-3 p-4 bg-white rounded-lg border">
-                <Checkbox
-                  id="isOutOfStock"
-                  checked={formData.isOutOfStock}
-                  onCheckedChange={(checked) => setFormData({ ...formData, isOutOfStock: checked as boolean })}
-                  disabled={!isManager}
-                />
-                <div className="flex-1">
-                  <Label htmlFor="isOutOfStock" className="text-sm font-medium cursor-pointer">
-                    Mark as Out of Stock
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    Check this box if the product is currently out of stock
-                  </p>
-                </div>
-                {!isManager && (
-                  <span className="rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-800">Manager only</span>
-                )}
-              </div>
-            </div>
-
-            {/* Pricing */}
-            <div className="form-section">
-              <h3 className="text-lg font-semibold text-secondary mb-4 flex items-center gap-3">
-                <div className="w-8 h-8 bg-success/10 rounded-lg flex items-center justify-center">
-                  <DollarSign className="h-4 w-4 text-success" />
-                </div>
-                Pricing Information
-              </h3>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="price" className="text-sm font-medium text-secondary">
-                    Selling Price (PKR)
-                  </Label>
-                  <Input
-                    id="price"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                    required
-                    className="input-modern mobile-input"
-                    placeholder="Enter selling price per unit"
-                  />
-                </div>
-
-                {/* Purchase Rate - Only visible to managers */}
-                {isManager && (
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="purchaseRate"
-                      className="text-sm font-medium text-secondary flex items-center gap-2"
-                    >
-                      <ShoppingCart className="h-4 w-4" />
-                      Purchase Rate (PKR)
-                      <span className="rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-800">Manager only</span>
-                    </Label>
-                    <Input
-                      id="purchaseRate"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={formData.purchaseRate}
-                      onChange={(e) => setFormData({ ...formData, purchaseRate: e.target.value })}
-                      className="input-modern mobile-input"
-                      placeholder="Enter purchase rate per unit"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Cost price at which this product was purchased (optional)
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Product Images */}
-            <div className="form-section">
-              <h3 className="text-lg font-semibold text-secondary mb-4 flex items-center gap-3">
-                <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
-                  <ImageIcon className="h-4 w-4 text-gray-600" />
-                </div>
-                Product Images
-              </h3>
-
-              <MultipleImageUpload
-                images={newImages}
-                onImagesChange={setNewImages}
-                existingImages={existingImages}
-                onExistingImagesChange={setExistingImages}
-                maxImages={6}
+        <FormSection title="Product identity" className="pt-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="productId">Product ID</Label>
+              <Input
+                id="productId"
+                value={formData.productId}
+                onChange={(e) => setFormData({ ...formData, productId: e.target.value })}
+                required
+                className="h-10 font-mono"
+                placeholder="Unique product ID"
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="name">Product name</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+                className="h-10"
+                placeholder="Descriptive product name"
+              />
+            </div>
+          </div>
+        </FormSection>
 
-            {/* Summary Card */}
-            {formData.name && formData.price && (
-              <div className="rounded-xl border border-slate-800 bg-slate-950 p-5 text-white shadow-lg shadow-slate-950/5">
-                <h3 className="text-lg font-semibold mb-4">Updated Product Summary</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-                  <div>
-                    <p className="text-primary-foreground/80">Product Name</p>
-                    <p className="font-semibold">{formData.name}</p>
-                  </div>
-                  <div>
-                    <p className="text-primary-foreground/80">Stock Status</p>
-                    <p className="font-semibold">{formData.isOutOfStock ? "Out of Stock" : "In Stock"}</p>
-                  </div>
-                  <div>
-                    <p className="text-primary-foreground/80">Selling Price</p>
-                    <p className="font-semibold">PKR {Number.parseFloat(formData.price || "0").toLocaleString()}</p>
-                  </div>
-                </div>
+        <FormSection title="Availability" className="pt-6">
+          <div className="flex items-start gap-3 rounded-lg border border-border p-3">
+            <Checkbox
+              id="isOutOfStock"
+              checked={formData.isOutOfStock}
+              onCheckedChange={(checked) => setFormData({ ...formData, isOutOfStock: checked as boolean })}
+              disabled={!isManager}
+              className="mt-0.5"
+            />
+            <div className="min-w-0 flex-1">
+              <Label htmlFor="isOutOfStock" className="cursor-pointer text-sm font-medium">
+                Mark as out of stock
+              </Label>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Check if this product is currently unavailable for sale.
+              </p>
+              {!isManager && (
+                <p className="mt-1 text-xs text-amber-800">Only managers can change availability.</p>
+              )}
+            </div>
+          </div>
+        </FormSection>
 
-                {/* Show profit margin if both prices are available and user is manager */}
-                {isManager && formData.purchaseRate && formData.price && (
-                  <div className="mt-4 pt-4 border-t border-white/20">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="text-primary-foreground/80">Purchase Rate</p>
-                        <p className="font-semibold">PKR {Number.parseFloat(formData.purchaseRate).toLocaleString()}</p>
-                      </div>
-                      <div>
-                        <p className="text-primary-foreground/80">Profit Margin</p>
-                        <p className="font-semibold">
-                          {(
-                            ((Number.parseFloat(formData.price) - Number.parseFloat(formData.purchaseRate)) /
-                              Number.parseFloat(formData.price)) *
-                            100
-                          ).toFixed(1)}
-                          %
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
+        <FormSection title="Pricing" className="pt-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="price">Sale price (PKR)</Label>
+              <Input
+                id="price"
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.price}
+                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                required
+                className="h-10"
+              />
+            </div>
+            {isManager && (
+              <div className="space-y-2">
+                <Label htmlFor="purchaseRate">Purchase rate (PKR)</Label>
+                <Input
+                  id="purchaseRate"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.purchaseRate}
+                  onChange={(e) => setFormData({ ...formData, purchaseRate: e.target.value })}
+                  className="h-10"
+                  placeholder="Optional cost price"
+                />
               </div>
             )}
+          </div>
+        </FormSection>
 
-            {/* Action Buttons */}
-            <div className="flex flex-col-reverse gap-3 border-t border-gray-200 pt-5 sm:flex-row sm:justify-end">
-              <Button type="submit" className="mobile-button flex-1 sm:flex-none" disabled={loading}>
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Updating Product...
-                  </>
-                ) : (
-                  <>
-                    <Edit className="mr-2 h-4 w-4" />
-                    Update Product
-                  </>
-                )}
-              </Button>
-
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => router.back()}
-                className="mobile-button flex-1 sm:flex-none"
-              >
-                Cancel
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+        <FormSection title="Images" description="Up to 6 images. First image is primary." className="pt-6">
+          <MultipleImageUpload
+            images={newImages}
+            onImagesChange={setNewImages}
+            existingImages={existingImages}
+            onExistingImagesChange={setExistingImages}
+            maxImages={6}
+          />
+        </FormSection>
+      </ProductEditorShell>
+    </form>
   )
 }

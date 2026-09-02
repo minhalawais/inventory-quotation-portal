@@ -1,14 +1,15 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useCallback } from "react"
+import Image from "next/image"
+import { X, Upload, ImageIcon } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
-import { X, Upload, ImageIcon, Plus } from "lucide-react"
-import Image from "next/image"
 import { useToast } from "@/hooks/use-toast"
+import { cn } from "@/lib/utils"
 
 interface MultipleImageUploadProps {
   images: File[]
@@ -43,7 +44,6 @@ export default function MultipleImageUpload({
         }
 
         if (file.size > 5 * 1024 * 1024) {
-          // 5MB limit
           toast({
             title: "File too large",
             description: `${file.name} is larger than 5MB`,
@@ -91,146 +91,124 @@ export default function MultipleImageUpload({
   )
 
   const removeNewImage = (index: number) => {
-    const newImages = images.filter((_, i) => i !== index)
-    onImagesChange(newImages)
+    onImagesChange(images.filter((_, i) => i !== index))
   }
 
   const removeExistingImage = (index: number) => {
     if (onExistingImagesChange) {
-      const newExistingImages = existingImages.filter((_, i) => i !== index)
-      onExistingImagesChange(newExistingImages)
+      onExistingImagesChange(existingImages.filter((_, i) => i !== index))
     }
   }
 
   const totalImages = images.length + existingImages.length
 
   return (
-    <div className="space-y-4">
-      <Label className="text-sm font-medium text-secondary">
-        Product Images ({totalImages}/{maxImages})
-      </Label>
+    <div className="space-y-3">
+      <p className="text-xs text-muted-foreground">
+        {totalImages}/{maxImages} images
+      </p>
 
-      {/* Existing Images */}
-      {existingImages.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">Current Images:</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-            {existingImages.map((image, index) => (
-              <div key={`existing-${index}`} className="relative group">
-                <div className="relative w-full aspect-square rounded-lg overflow-hidden border-2 border-gray-200">
-                  <Image
-                    src={image || "/placeholder.svg"}
-                    alt={`Existing image ${index + 1}`}
-                    fill
-                    className="object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-                  {onExistingImagesChange && (
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="icon"
-                      className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                      onClick={() => removeExistingImage(index)}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* New Images Preview */}
-      {images.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">New Images to Upload:</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-            {images.map((file, index) => (
-              <div key={`new-${index}`} className="relative group">
-                <div className="relative w-full aspect-square rounded-lg overflow-hidden border-2 border-primary/30">
-                  <Image
-                    src={URL.createObjectURL(file) || "/placeholder.svg"}
-                    alt={`New image ${index + 1}`}
-                    fill
-                    className="object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+      {(existingImages.length > 0 || images.length > 0) && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+          {existingImages.map((image, index) => (
+            <div key={`existing-${index}`} className="group relative">
+              <div className="relative aspect-[4/3] overflow-hidden rounded-md border border-border bg-muted">
+                <Image src={image || "/placeholder.svg"} alt={`Existing image ${index + 1}`} fill className="object-contain p-1" />
+                {index === 0 && (
+                  <span className="absolute left-1.5 top-1.5 rounded bg-background/90 px-1.5 py-0.5 text-[10px] font-medium">
+                    Primary
+                  </span>
+                )}
+                {onExistingImagesChange && (
                   <Button
                     type="button"
                     variant="destructive"
                     size="icon"
-                    className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                    onClick={() => removeNewImage(index)}
+                    className="absolute right-1.5 top-1.5 h-8 w-8 opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                    onClick={() => removeExistingImage(index)}
+                    aria-label={`Remove image ${index + 1}`}
                   >
-                    <X className="h-3 w-3" />
+                    <X className="h-3.5 w-3.5" />
                   </Button>
-                </div>
-                <p className="text-xs text-center mt-1 text-muted-foreground truncate">{file.name}</p>
+                )}
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
+
+          {images.map((file, index) => (
+            <div key={`new-${index}`} className="group relative">
+              <div className="relative aspect-[4/3] overflow-hidden rounded-md border border-primary/40 bg-muted">
+                <Image
+                  src={URL.createObjectURL(file) || "/placeholder.svg"}
+                  alt={`New image ${index + 1}`}
+                  fill
+                  className="object-contain p-1"
+                />
+                {existingImages.length === 0 && index === 0 && (
+                  <span className="absolute left-1.5 top-1.5 rounded bg-background/90 px-1.5 py-0.5 text-[10px] font-medium">
+                    Primary
+                  </span>
+                )}
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="icon"
+                  className="absolute right-1.5 top-1.5 h-8 w-8 opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                  onClick={() => removeNewImage(index)}
+                  aria-label={`Remove new image ${index + 1}`}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <p className="mt-1 truncate text-xs text-muted-foreground">{file.name}</p>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Upload Area */}
       {totalImages < maxImages && (
         <div
-          className={`relative border-2 border-dashed rounded-xl p-6 transition-colors duration-200 ${
-            dragActive ? "border-primary bg-primary/5" : "border-gray-300 hover:border-primary/50 hover:bg-primary/5"
-          }`}
+          className={cn(
+            "relative rounded-lg border border-dashed p-5 transition-colors",
+            dragActive ? "border-primary bg-primary/5" : "border-border hover:border-primary/40",
+          )}
           onDragEnter={handleDrag}
           onDragLeave={handleDrag}
           onDragOver={handleDrag}
           onDrop={handleDrop}
         >
-          <div className="text-center space-y-4">
-            <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mx-auto">
-              <ImageIcon className="h-6 w-6 text-primary" />
-            </div>
-
+          <div className="flex flex-col items-center gap-3 text-center">
+            <ImageIcon className="h-8 w-8 text-muted-foreground" strokeWidth={1.5} aria-hidden />
             <div>
-              <p className="text-sm font-medium text-secondary mb-1">Drop images here or click to browse</p>
-              <p className="text-xs text-muted-foreground">
-                PNG, JPG, WebP up to 5MB each • {maxImages - totalImages} more images allowed
+              <p className="text-sm font-medium text-foreground">Drop images or browse</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                PNG, JPG, WebP up to 5MB · {maxImages - totalImages} remaining
               </p>
             </div>
-
-            <div className="flex flex-col sm:flex-row gap-2 items-center justify-center">
-              <Input
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={(e) => handleFiles(e.target.files)}
-                className="hidden"
-                id="image-upload"
-              />
-              <Label htmlFor="image-upload" className="cursor-pointer">
-                <Button type="button" variant="outline" className="mobile-button bg-transparent" asChild>
-                  <span>
-                    <Upload className="h-4 w-4 mr-2" />
-                    Choose Files
-                  </span>
-                </Button>
-              </Label>
-
-              <span className="text-xs text-muted-foreground">or</span>
-
-              <Button type="button" variant="ghost" size="sm" className="text-xs">
-                <Plus className="h-3 w-3 mr-1" />
-                Drag & Drop
+            <Input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={(e) => handleFiles(e.target.files)}
+              className="hidden"
+              id="image-upload"
+            />
+            <Label htmlFor="image-upload" className="cursor-pointer">
+              <Button type="button" variant="outline" size="sm" asChild>
+                <span>
+                  <Upload className="mr-1.5 h-3.5 w-3.5" />
+                  Choose files
+                </span>
               </Button>
-            </div>
+            </Label>
           </div>
         </div>
       )}
 
       {totalImages >= maxImages && (
-        <div className="text-center p-4 bg-muted/50 rounded-lg border">
-          <p className="text-sm text-muted-foreground">Maximum number of images reached ({maxImages})</p>
-        </div>
+        <p className="rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
+          Maximum of {maxImages} images reached.
+        </p>
       )}
     </div>
   )

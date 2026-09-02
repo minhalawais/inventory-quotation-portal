@@ -1,16 +1,31 @@
 "use client"
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { X, Package, Tag, Layers, Hash, DollarSign, ShoppingCart, AlertTriangle } from "lucide-react"
-import ImageSlider from "@/components/ui/image-slider"
+import { Package, Edit } from "lucide-react"
 import { useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
+
+import ImageSlider from "@/components/ui/image-slider"
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import {
+  Drawer,
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer"
+import { StatusBadge } from "@/components/shared/status-badge"
+import { useIsMobile } from "@/hooks/use-mobile"
+import { classifyProduct } from "@/lib/product-classification"
+import { collectProductImages } from "@/lib/product-images"
 
 interface Product {
   _id: string
-  group: string
-  subGroup: string
+  department?: string
+  category?: string
+  subCategory?: string
+  group?: string
+  subGroup?: string
   productId: string
   name: string
   price: number
@@ -24,229 +39,137 @@ interface ProductViewModalProps {
   product: Product | null
   isOpen: boolean
   onClose: () => void
+  onEdit?: (productId: string) => void
 }
 
-export default function ProductViewModal({ product, isOpen, onClose }: ProductViewModalProps) {
+function SpecRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 py-2">
+      <dt className="shrink-0 text-xs text-muted-foreground">{label}</dt>
+      <dd className="text-right text-sm font-medium tabular-nums text-foreground break-words">{value}</dd>
+    </div>
+  )
+}
+
+function ProductDetailBody({
+  product,
+  images,
+  isManager,
+}: {
+  product: Product
+  images: string[]
+  isManager: boolean
+}) {
+  const classification = classifyProduct(product)
+  const profit =
+    isManager && typeof product.purchaseRate === "number" ? product.price - product.purchaseRate : null
+  const margin =
+    profit != null && product.price > 0 ? ((profit / product.price) * 100).toFixed(1) : null
+
+  return (
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(280px,0.95fr)] lg:items-start">
+      <ImageSlider images={images} productName={product.name} />
+
+      <div className="min-w-0">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold leading-6 text-foreground break-words">{product.name}</h2>
+            <p className="mt-1 font-mono text-xs text-muted-foreground">#{product.productId}</p>
+          </div>
+          <StatusBadge
+            tone={product.isOutOfStock ? "danger" : "success"}
+            className="shrink-0"
+          >
+            {product.isOutOfStock ? "Out of stock" : "In stock"}
+          </StatusBadge>
+        </div>
+
+        <p className="mt-4 text-xl font-semibold tabular-nums">PKR {product.price.toLocaleString()}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">Sale price</p>
+
+        <dl className="mt-4 divide-y divide-border border-y border-border">
+          {isManager && typeof product.purchaseRate === "number" && (
+            <>
+              <SpecRow label="Purchase rate" value={`PKR ${product.purchaseRate.toLocaleString()}`} />
+              {profit != null && <SpecRow label="Profit / unit" value={`PKR ${profit.toLocaleString()}`} />}
+              {margin != null && <SpecRow label="Margin" value={`${margin}%`} />}
+            </>
+          )}
+          <SpecRow label="Department" value={classification.department || "—"} />
+          <SpecRow label="Category" value={classification.category || "—"} />
+          <SpecRow label="Subcategory" value={classification.subCategory || "—"} />
+        </dl>
+      </div>
+    </div>
+  )
+}
+
+export default function ProductViewModal({ product, isOpen, onClose, onEdit }: ProductViewModalProps) {
   const { data: session } = useSession()
+  const router = useRouter()
+  const isMobile = useIsMobile()
   const isManager = session?.user?.role === "manager"
 
   if (!product) return null
 
-  // Handle both new imagePaths array and old imagePath string for backward compatibility
-  const images =
-    product.imagePaths && product.imagePaths.length > 0
-      ? product.imagePaths
-      : product.imagePath
-        ? [product.imagePath]
-        : []
+  const images = collectProductImages(product)
+  const canEdit = Boolean(onEdit)
+
+  const handleEdit = () => {
+    onClose()
+    if (onEdit) {
+      onEdit(product._id)
+    } else {
+      router.push(`/products/edit/${product._id}`)
+    }
+  }
+
+  const footer = (
+    <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+      <Button type="button" variant="outline" onClick={onClose}>
+        Close
+      </Button>
+      {canEdit && (
+        <Button type="button" onClick={handleEdit}>
+          <Edit className="mr-1.5 h-3.5 w-3.5" />
+          Edit
+        </Button>
+      )}
+    </div>
+  )
+
+  if (isMobile) {
+    return (
+      <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
+        <DrawerContent className="max-h-[96vh]">
+          <DrawerHeader className="border-b border-border text-left">
+            <DrawerTitle className="flex items-center gap-2 text-base">
+              <Package className="h-4 w-4 text-muted-foreground" aria-hidden />
+              Product details
+            </DrawerTitle>
+          </DrawerHeader>
+          <div className="overflow-y-auto px-4 py-4">
+            <ProductDetailBody product={product} images={images} isManager={isManager} />
+          </div>
+          <DrawerFooter className="border-t border-border">{footer}</DrawerFooter>
+        </DrawerContent>
+      </Drawer>
+    )
+  }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto custom-scrollbar p-0 sm:p-6">
-        {/* Mobile Header */}
-        <DialogHeader className="sticky top-0 bg-white z-10 p-4 sm:p-0 border-b sm:border-b-0 rounded-t-lg">
-          <DialogTitle className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
-                <Package className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <span className="text-lg sm:text-xl font-bold text-secondary">Product Details</span>
-                <p className="text-sm text-muted-foreground">#{product.productId}</p>
-              </div>
-            </div>
-            <Button variant="ghost" size="icon" onClick={onClose} className="flex-shrink-0">
-              <X className="h-4 w-4" />
-            </Button>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="flex max-h-[92vh] w-full max-w-[920px] flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader className="shrink-0 border-b border-border px-5 py-3">
+          <DialogTitle className="flex items-center gap-2 text-base font-semibold">
+            <Package className="h-4 w-4 text-muted-foreground" aria-hidden />
+            Product details
           </DialogTitle>
         </DialogHeader>
-
-        <div className="p-4 sm:p-0 space-y-6">
-          {/* Product Images Slider */}
-          <ImageSlider images={images} productName={product.name} className="w-full h-64 sm:h-80" />
-
-          {/* Product Header */}
-          <div className="text-center sm:text-left">
-            <h2 className="text-2xl sm:text-3xl font-bold text-secondary mb-3">{product.name}</h2>
-            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3">
-              <Badge variant="outline" className="border-primary/30 text-primary bg-primary/5">
-                {product.group}
-              </Badge>
-              <Badge variant="outline" className="border-secondary/30 text-secondary bg-secondary/5">
-                {product.subGroup}
-              </Badge>
-              <Badge className={`${product.isOutOfStock ? "status-cancelled" : "status-sent"} text-xs font-semibold`}>
-                {product.isOutOfStock ? "Out of Stock" : "In Stock"}
-              </Badge>
-              {images.length > 1 && (
-                <Badge variant="outline" className="border-blue-300 text-blue-700 bg-blue-50">
-                  {images.length} Images
-                </Badge>
-              )}
-            </div>
-          </div>
-
-          {/* Details Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Left Column */}
-            <div className="space-y-4">
-              <div className="card-modern mobile-card bg-muted/30">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
-                    <Tag className="h-6 w-6 text-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-muted-foreground">Product Group</p>
-                    <p className="text-lg font-semibold text-secondary">{product.group}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="card-modern mobile-card bg-muted/30">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-secondary/10 rounded-xl flex items-center justify-center">
-                    <Layers className="h-6 w-6 text-secondary" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-muted-foreground">Sub-Group</p>
-                    <p className="text-lg font-semibold text-secondary">{product.subGroup}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Right Column */}
-            <div className="space-y-4">
-              <div
-                className={`card-modern mobile-card ${product.isOutOfStock ? "bg-red/5 border-red/20" : "bg-success/5 border-success/20"}`}
-              >
-                <div className="flex items-center gap-4">
-                  <div
-                    className={`w-12 h-12 rounded-xl flex items-center justify-center ${product.isOutOfStock ? "bg-red/10" : "bg-success/10"}`}
-                  >
-                    {product.isOutOfStock ? (
-                      <AlertTriangle className="h-6 w-6 text-red-600" />
-                    ) : (
-                      <Package className="h-6 w-6 text-success" />
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-muted-foreground">Stock Status</p>
-                    <p className={`text-lg font-semibold ${product.isOutOfStock ? "text-red-600" : "text-success"}`}>
-                      {product.isOutOfStock ? "Out of Stock" : "In Stock"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="card-modern mobile-card bg-primary/5 border-primary/20">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
-                    <DollarSign className="h-6 w-6 text-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-muted-foreground">Selling Price</p>
-                    <p className="text-lg font-semibold text-primary">PKR {product.price.toLocaleString()}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Purchase Rate - Only visible to managers */}
-              {isManager && product.purchaseRate && (
-                <div className="card-modern mobile-card bg-orange/5 border-orange/20">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-orange/10 rounded-xl flex items-center justify-center">
-                      <ShoppingCart className="h-6 w-6 text-orange-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                        Purchase Rate
-                        <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full">
-                          Manager Only
-                        </span>
-                      </p>
-                      <p className="text-lg font-semibold text-orange-600">
-                        PKR {product.purchaseRate.toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Profit Analysis - Only visible to managers */}
-          {isManager && product.purchaseRate && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-5">
-              <h3 className="text-lg font-semibold text-secondary mb-4 flex items-center gap-3">
-                <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
-                  <DollarSign className="h-4 w-4 text-orange-600" />
-                </div>
-                Profit Analysis
-                <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full">Manager Only</span>
-              </h3>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="text-center p-4 bg-white/50 rounded-lg border border-orange-100">
-                  <p className="text-sm text-muted-foreground mb-1">Profit per Unit</p>
-                  <p className="text-xl font-bold text-green-600">
-                    PKR {(product.price - product.purchaseRate).toLocaleString()}
-                  </p>
-                </div>
-
-                <div className="text-center p-4 bg-white/50 rounded-lg border border-orange-100">
-                  <p className="text-sm text-muted-foreground mb-1">Profit Margin</p>
-                  <p className="text-xl font-bold text-blue-600">
-                    {(((product.price - product.purchaseRate) / product.price) * 100).toFixed(1)}%
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Product Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="text-center p-4 bg-muted/30 rounded-xl border">
-              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center mx-auto mb-2">
-                <Hash className="h-5 w-5 text-primary" />
-              </div>
-              <p className="text-xs text-muted-foreground">Product ID</p>
-              <p className="font-mono font-semibold text-secondary text-sm">{product.productId}</p>
-            </div>
-
-            <div className="text-center p-4 bg-muted/30 rounded-xl border">
-              <div
-                className={`w-10 h-10 rounded-lg flex items-center justify-center mx-auto mb-2 ${product.isOutOfStock ? "bg-red/10" : "bg-success/10"}`}
-              >
-                {product.isOutOfStock ? (
-                  <AlertTriangle className="h-5 w-5 text-red-600" />
-                ) : (
-                  <Package className="h-5 w-5 text-success" />
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground">Stock Status</p>
-              <p className={`font-semibold text-sm ${product.isOutOfStock ? "text-red-600" : "text-success"}`}>
-                {product.isOutOfStock ? "Out of Stock" : "Available"}
-              </p>
-            </div>
-
-            <div className="text-center p-4 bg-muted/30 rounded-xl border">
-              <div className="w-10 h-10 bg-secondary/10 rounded-lg flex items-center justify-center mx-auto mb-2">
-                <Tag className="h-5 w-5 text-secondary" />
-              </div>
-              <p className="text-xs text-muted-foreground">Category</p>
-              <p className="font-semibold text-secondary text-sm">{product.group}</p>
-            </div>
-
-            <div className="text-center p-4 bg-muted/30 rounded-xl border">
-              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center mx-auto mb-2">
-                <DollarSign className="h-5 w-5 text-primary" />
-              </div>
-              <p className="text-xs text-muted-foreground">Price</p>
-              <p className="font-semibold text-primary text-sm">PKR {product.price}</p>
-            </div>
-          </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+          <ProductDetailBody product={product} images={images} isManager={isManager} />
         </div>
+        <DialogFooter className="shrink-0 border-t border-border px-5 py-3 sm:justify-end">{footer}</DialogFooter>
       </DialogContent>
     </Dialog>
   )

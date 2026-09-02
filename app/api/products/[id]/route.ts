@@ -1,8 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
+import { ObjectId } from "mongodb"
+
 import { authOptions } from "@/lib/auth"
 import clientPromise from "@/lib/mongodb"
-import { ObjectId } from "mongodb"
+import { withClassification } from "@/lib/product-classification"
+import { resolveProductClassification } from "@/lib/taxonomy"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -26,7 +29,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       delete product.purchaseRate
     }
 
-    return NextResponse.json(product)
+    return NextResponse.json(withClassification(product))
   } catch (error) {
     console.error("Product GET error:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
@@ -41,15 +44,25 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     const body = await request.json()
-    const { group, subGroup, productId, name, price, purchaseRate, imagePaths, isOutOfStock } = body
+    const { productId, name, price, purchaseRate, imagePaths, isOutOfStock } = body
 
     const client = await clientPromise
     const db = client.db("inventory_portal")
     const products = db.collection("products")
+    const classification = await resolveProductClassification(db, body)
+    if ("error" in classification) {
+      return NextResponse.json({ error: classification.error }, { status: classification.status })
+    }
 
-    const updateData: any = {
-      group,
-      subGroup,
+    const updateData: Record<string, unknown> = {
+      department: classification.department,
+      category: classification.category,
+      subCategory: classification.subCategory,
+      departmentId: classification.departmentId,
+      categoryId: classification.categoryId,
+      subCategoryId: classification.subCategoryId || undefined,
+      group: classification.department,
+      subGroup: classification.category,
       productId,
       name,
       price,
