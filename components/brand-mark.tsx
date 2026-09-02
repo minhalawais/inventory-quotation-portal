@@ -1,30 +1,64 @@
+import Image from "next/image"
+
+import { COMPANY } from "@/lib/company"
+import { cn } from "@/lib/utils"
+
 interface BrandMarkProps {
   compact?: boolean
   inverse?: boolean
+  className?: string
+  /** Omit on customer-facing documents. Defaults to “Operations Portal”. */
+  subtitle?: string | false
 }
 
-export function BrandMark({ compact = false, inverse = false }: BrandMarkProps) {
-  return (
-    <div className="flex min-w-0 items-center gap-3" aria-label="InventoryOS home">
-      <div
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border ${
-          inverse ? "border-white/15 bg-white/10 text-white" : "border-blue-200 bg-blue-600 text-white"
-        }`}
-      >
-        <svg viewBox="0 0 36 36" className="h-6 w-6" fill="none" aria-hidden="true">
-          <path d="M7.5 10.5 18 5l10.5 5.5L18 16 7.5 10.5Z" fill="currentColor" opacity=".98" />
-          <path d="m7.5 14.3 8.5 4.45v10.1L7.5 24.4V14.3Z" fill="currentColor" opacity=".68" />
-          <path d="m28.5 14.3-8.5 4.45v10.1l8.5-4.45V14.3Z" fill="currentColor" opacity=".38" />
-        </svg>
+export function BrandMark({ compact = false, inverse = false, className = "", subtitle }: BrandMarkProps) {
+  const isDocument = subtitle === false
+  const line2 = isDocument ? null : (subtitle ?? "Operations Portal")
+  const label = line2 ? "KK Sports Operations" : "KK Sports"
+
+  if (inverse && !compact) {
+    return (
+      <div className={cn("flex min-w-0 flex-col justify-center gap-0.5", className)} aria-label={label}>
+        <Image
+          src={COMPANY.logoHorizontalPath}
+          alt=""
+          width={230}
+          height={64}
+          className="h-8 w-auto max-w-[148px] object-contain object-left sm:h-9 sm:max-w-[176px]"
+          priority
+        />
+        {line2 && (
+          <span className="truncate text-[10px] font-medium uppercase tracking-[0.04em] text-white/45">
+            {line2}
+          </span>
+        )}
       </div>
+    )
+  }
+
+  const src = inverse ? COMPANY.logoPath : COMPANY.logoWhiteBgPath
+  const size = compact ? 36 : 40
+
+  return (
+    <div className={cn("flex min-w-0 items-center gap-2.5", className)} aria-label={label}>
+      <Image
+        src={src}
+        alt=""
+        width={size}
+        height={size}
+        className={cn("shrink-0 object-contain", compact ? "h-9 w-9" : "h-10 w-10")}
+        priority
+      />
       {!compact && (
         <div className="min-w-0">
-          <div className={`text-[15px] font-semibold leading-5 tracking-[-0.025em] ${inverse ? "text-white" : "text-gray-950"}`}>
-            Inventory<span className={inverse ? "text-blue-400" : "text-blue-600"}>OS</span>
+          <div className={cn("truncate text-sm font-bold leading-5", inverse ? "text-white" : "text-foreground")}>
+            KK Sports
           </div>
-          <div className={`text-[11px] leading-4 ${inverse ? "text-gray-400" : "text-gray-500"}`}>
-            Commerce operations
-          </div>
+          {line2 && (
+            <div className={cn("truncate text-[11px] leading-4", inverse ? "text-white/55" : "text-muted-foreground")}>
+              {line2}
+            </div>
+          )}
         </div>
       )}
     </div>

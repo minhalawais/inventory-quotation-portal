@@ -9,32 +9,42 @@ import { Providers } from "@/components/providers"
 import AppLayout from "@/components/layout/app-layout"
 
 export const metadata: Metadata = {
-  title: "InventoryOS",
-  description: "Inventory and quotation operations portal",
-  keywords: "inventory, quotation, management, business, sales, professional, portal",
-  authors: [{ name: "InventoryOS" }],
-  creator: "InventoryOS",
-  publisher: "InventoryOS",
+  title: {
+    default: "KK Sports Operations",
+    template: "%s | KK Sports Operations",
+  },
+  description: "KK Sports inventory, quotation, and team operations portal",
+  keywords: "KK Sports, inventory, quotations, products, operations",
+  authors: [{ name: "KK Sports" }],
+  creator: "KK Sports",
+  publisher: "KK Sports",
   formatDetection: {
     email: false,
     address: false,
     telephone: false,
   },
+  applicationName: "KK Sports Operations",
+  manifest: "/manifest.json",
   icons: {
-    icon: '/brand-icon.svg',
-    shortcut: '/brand-icon.svg',
-    apple: '/brand-icon.svg',
-    other: {
-      rel: 'icon',
-      url: '/brand-icon.svg',
-    },
+    icon: [
+      { url: "/favicon.ico", sizes: "48x48 32x32 16x16", type: "image/x-icon" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: "/apple-icon.png",
+  },
+  appleWebApp: {
+    capable: true,
+    title: "KK Sports",
+    statusBarStyle: "default",
   },
 }
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#111827",
+  themeColor: "#030201",
 }
 
 export default function RootLayout({
@@ -47,10 +57,10 @@ export default function RootLayout({
       <head>
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="InventoryOS" />
+        <meta name="apple-mobile-web-app-title" content="KK Sports" />
         <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="msapplication-TileColor" content="#111827" />
-        <meta name="theme-color" content="#111827" />
+        <meta name="msapplication-TileColor" content="#030201" />
+        <meta name="theme-color" content="#030201" />
       </head>
       <body>
         <Providers>

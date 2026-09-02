@@ -1,6 +1,11 @@
+import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
+
+export const metadata: Metadata = {
+  title: "Users",
+}
 import UserList from "@/components/users/user-list"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
