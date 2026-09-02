@@ -1,28 +1,20 @@
 "use client"
 
 import { signOut } from "next-auth/react"
-import { Button } from "@/components/ui/button"
 import { LogOut, RefreshCw } from "lucide-react"
 
+import { Button } from "@/components/ui/button"
+
 export function RestrictedActions() {
-  const handleSignOut = async () => {
-    await signOut({ callbackUrl: "/auth/signin" })
-  }
-
-  const handleTryAgain = () => {
-    window.location.reload()
-  }
-
   return (
-    <div className="space-y-3 pt-4">
-      <Button onClick={handleTryAgain} variant="outline" className="w-full bg-transparent">
-        <RefreshCw className="h-4 w-4 mr-2" />
-        Try Again
+    <div className="flex flex-col gap-2 sm:flex-row">
+      <Button type="button" onClick={() => window.location.reload()} className="flex-1">
+        <RefreshCw className="h-4 w-4" />
+        Try again
       </Button>
-
-      <Button onClick={handleSignOut} variant="destructive" className="w-full">
-        <LogOut className="h-4 w-4 mr-2" />
-        Sign Out
+      <Button type="button" onClick={() => signOut({ callbackUrl: "/auth/signin" })} variant="outline" className="flex-1">
+        <LogOut className="h-4 w-4" />
+        Sign out
       </Button>
     </div>
   )

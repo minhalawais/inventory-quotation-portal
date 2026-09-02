@@ -3,34 +3,54 @@
 import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { Loader2 } from "lucide-react"
+import { useSession } from "next-auth/react"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, ShieldCheck, UserRound } from "lucide-react"
-import { useSession } from "next-auth/react"
 import { logActivity } from "@/lib/logger"
+import { FormSection, FormActions } from "@/components/shared/form-section"
+import { Panel, PanelBody } from "@/components/shared/panel"
 import IPAddressManager from "./ip-address-manager"
 
+const ROLE_OPTIONS = [
+  {
+    value: "manager",
+    label: "Manager",
+    description: "Dashboard, users, products, quotations, and activity logs.",
+  },
+  {
+    value: "rider",
+    label: "Rider",
+    description: "Products, stock exceptions, and assigned quotations.",
+  },
+  {
+    value: "product_manager",
+    label: "Product Manager",
+    description: "Products and stock exceptions only.",
+  },
+] as const
 
 export default function UserForm() {
-
-const [formData, setFormData] = useState({
-  name: "",
-  email: "",
-  password: "",
-  confirmPassword: "",
-  role: "",
-  contact: "",
-  status: "active", // Add status field
-  allowedIps: ["*"],
-})
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    role: "",
+    contact: "",
+    status: "active",
+    allowedIps: ["*"],
+  })
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
   const { data: session } = useSession()
+
+  const selectedRole = ROLE_OPTIONS.find((role) => role.value === formData.role)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -38,8 +58,8 @@ const [formData, setFormData] = useState({
 
     if (formData.password !== formData.confirmPassword) {
       toast({
-        title: "Error",
-        description: "Passwords do not match",
+        title: "Passwords do not match",
+        description: "Enter the same password in both fields.",
         variant: "destructive",
       })
       setLoading(false)
@@ -63,7 +83,6 @@ const [formData, setFormData] = useState({
       })
 
       if (response.ok) {
-        // Log activity
         if (session) {
           await logActivity({
             userId: session.user.id,
@@ -77,8 +96,8 @@ const [formData, setFormData] = useState({
         }
 
         toast({
-          title: "Success",
-          description: "User created successfully",
+          title: "User created",
+          description: `${formData.name} can now sign in.`,
         })
         router.push("/users")
       } else {
@@ -86,7 +105,6 @@ const [formData, setFormData] = useState({
         throw new Error(errorData.error || "Failed to create user")
       }
     } catch (error) {
-      // Log error activity
       if (session) {
         await logActivity({
           userId: session.user.id,
@@ -100,7 +118,7 @@ const [formData, setFormData] = useState({
       }
 
       toast({
-        title: "Error",
+        title: "Could not create user",
         description: error instanceof Error ? error.message : "Failed to create user",
         variant: "destructive",
       })
@@ -110,43 +128,83 @@ const [formData, setFormData] = useState({
   }
 
   return (
-    <div className="space-y-6">
-      <Card className="max-w-4xl">
-        <CardContent className="p-5 sm:p-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="flex items-center gap-3 border-b border-gray-100 pb-5">
-              <div className="form-section-icon"><UserRound className="h-4 w-4" /></div>
-              <div>
-                <h3 className="text-sm font-semibold text-gray-950">Account profile</h3>
-                <p className="mt-0.5 text-xs text-gray-500">Identity, credentials, and operational role.</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <form onSubmit={handleSubmit} className="mx-auto max-w-[840px]">
+      <Panel>
+        <PanelBody className="space-y-0">
+          <FormSection title="Account profile" description="Name and sign-in email.">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
+                <Label htmlFor="name">Full name</Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
-                  placeholder="Enter full name"
+                  className="h-10"
+                  placeholder="Full name"
                 />
               </div>
-
               <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
+                <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
-                  placeholder="Enter email address"
+                  className="h-10"
+                  placeholder="name@example.com"
                 />
               </div>
             </div>
+          </FormSection>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormSection title="Role and status" className="pt-6">
+            <div className="space-y-2">
+              <Label htmlFor="role">Role</Label>
+              <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
+                <SelectTrigger id="role" className="h-10">
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ROLE_OPTIONS.map((role) => (
+                    <SelectItem key={role.value} value={role.value}>
+                      {role.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedRole && <p className="text-xs text-muted-foreground">{selectedRole.description}</p>}
+            </div>
+          </FormSection>
+
+          <FormSection title="Contact" className="pt-6">
+            <div className="space-y-2">
+              <Label htmlFor="contact">Contact number</Label>
+              <Input
+                id="contact"
+                value={formData.contact}
+                onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
+                className="h-10"
+                placeholder="Optional phone number"
+              />
+            </div>
+          </FormSection>
+
+          <FormSection
+            title="Network access"
+            description="Limit sign-in to allowed IP addresses."
+            className="pt-6"
+          >
+            <IPAddressManager
+              allowedIps={formData.allowedIps}
+              onChange={(ips) => setFormData({ ...formData, allowedIps: ips })}
+              disabled={loading}
+            />
+          </FormSection>
+
+          <FormSection title="Password" description="Minimum 6 characters." className="pt-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <Input
@@ -155,77 +213,46 @@ const [formData, setFormData] = useState({
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   required
+                  className="h-10"
                   placeholder="Enter password"
                   minLength={6}
                 />
               </div>
-
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Label htmlFor="confirmPassword">Confirm password</Label>
                 <Input
                   id="confirmPassword"
                   type="password"
                   value={formData.confirmPassword}
                   onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                   required
+                  className="h-10"
                   placeholder="Confirm password"
                   minLength={6}
                 />
               </div>
             </div>
+          </FormSection>
+        </PanelBody>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="role">Role</Label>
-                <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="manager">Manager</SelectItem>
-                    <SelectItem value="rider">Rider</SelectItem>
-                    <SelectItem value="product_manager">Product Manager</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="contact">Contact Number</Label>
-                <Input
-                  id="contact"
-                  value={formData.contact}
-                  onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
-                  placeholder="Enter contact number"
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col-reverse gap-3 border-t border-gray-100 pt-5 sm:flex-row sm:justify-end">
-              <Button type="submit" disabled={loading}>
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating user…
-                  </>
-                ) : (
-                  <><ShieldCheck className="h-4 w-4" /> Create user</>
-                )}
-              </Button>
-
-              <Button type="button" variant="outline" onClick={() => router.back()}>
-                Cancel
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-
-      <div className="max-w-4xl">
-        <IPAddressManager
-          allowedIps={formData.allowedIps}
-          onChange={(ips) => setFormData({ ...formData, allowedIps: ips })}
-          disabled={loading}
-        />
-      </div>
-    </div>
+        <div className="border-t border-border px-4 py-3 sm:px-5">
+          <FormActions className="border-0 pt-0">
+            <Button type="button" variant="outline" onClick={() => router.back()} disabled={loading}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={loading || !formData.role}>
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating…
+                </>
+              ) : (
+                "Create user"
+              )}
+            </Button>
+          </FormActions>
+        </div>
+      </Panel>
+    </form>
   )
 }

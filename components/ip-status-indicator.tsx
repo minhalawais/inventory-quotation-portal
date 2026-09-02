@@ -1,9 +1,10 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Badge } from "@/components/ui/badge"
-import { Shield, Globe, AlertTriangle } from "lucide-react"
+import { Globe, Shield } from "lucide-react"
 import { useSession } from "next-auth/react"
+
+import { StatusBadge } from "@/components/shared/status-badge"
 
 interface IPStatus {
   currentIP: string
@@ -14,63 +15,60 @@ interface IPStatus {
 export default function IPStatusIndicator() {
   const { data: session } = useSession()
   const [ipStatus, setIpStatus] = useState<IPStatus | null>(null)
-  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (session) {
-      checkIPStatus()
+    if (!session) return
+
+    let cancelled = false
+
+    const checkIPStatus = async () => {
+      try {
+        const response = await fetch("/api/check-ip")
+        if (!response.ok) return
+        const data = await response.json()
+        if (cancelled) return
+        setIpStatus({
+          currentIP: data.currentIP ?? data.ip ?? "",
+          allowedIPs: data.allowedIPs ?? session.user.allowedIps ?? ["*"],
+          isAllowed: Boolean(data.isAllowed ?? data.allowed),
+        })
+      } catch (error) {
+        console.error("Failed to check IP status:", error)
+      }
+    }
+
+    void checkIPStatus()
+    return () => {
+      cancelled = true
     }
   }, [session])
 
-  const checkIPStatus = async () => {
-    try {
-      const response = await fetch("/api/check-ip")
-      if (response.ok) {
-        const data = await response.json()
-        setIpStatus(data)
-      }
-    } catch (error) {
-      console.error("Failed to check IP status:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (!session || loading) {
+  if (!session || !ipStatus) {
     return null
-  }
-
-  if (!ipStatus) {
-    return (
-      <Badge variant="secondary" className="text-xs">
-        <AlertTriangle className="h-3 w-3 mr-1" />
-        IP Status Unknown
-      </Badge>
-    )
   }
 
   if (!ipStatus.isAllowed) {
     return (
-      <Badge variant="destructive" className="text-xs">
-        <Shield className="h-3 w-3 mr-1" />
-        IP Restricted
-      </Badge>
+      <StatusBadge tone="danger" showDot={false}>
+        <Shield className="mr-1 h-3 w-3" />
+        IP restricted
+      </StatusBadge>
     )
   }
 
   if (ipStatus.allowedIPs.includes("*")) {
     return (
-      <Badge variant="secondary" className="text-xs">
-        <Globe className="h-3 w-3 mr-1" />
-        All IPs Allowed
-      </Badge>
+      <StatusBadge tone="neutral" showDot={false}>
+        <Globe className="mr-1 h-3 w-3" />
+        Any IP allowed
+      </StatusBadge>
     )
   }
 
   return (
-    <Badge variant="outline" className="text-xs">
-      <Shield className="h-3 w-3 mr-1" />
-      IP: {ipStatus.currentIP}
-    </Badge>
+    <StatusBadge tone="success" showDot={false}>
+      <Shield className="mr-1 h-3 w-3" />
+      IP: {ipStatus.currentIP || "allowed"}
+    </StatusBadge>
   )
 }

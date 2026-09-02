@@ -1,6 +1,11 @@
+import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
+
+export const metadata: Metadata = {
+  title: "Edit user",
+}
 import EditUserForm from "@/components/users/edit-user-form"
 import { ArrowLeft, UserCog } from "lucide-react"
 import { PageHeading } from "@/components/layout/page-heading"
@@ -22,9 +27,18 @@ export default async function EditUserPage({ params }: EditUserPageProps) {
 
   return (
     <div className="space-y-6">
-      <PageHeading title="Edit user" description="Update account details, permissions, and access rules." icon={UserCog} actions={
-        <Button variant="outline" asChild><Link href="/users"><ArrowLeft className="h-4 w-4" /> Back to users</Link></Button>
-      } />
+      <PageHeading
+        title="Edit user"
+        description="Update account details, role, status, and network access."
+        icon={UserCog}
+        actions={
+          <Button variant="outline" asChild>
+            <Link href="/users">
+              <ArrowLeft className="h-4 w-4" /> Back to users
+            </Link>
+          </Button>
+        }
+      />
       <EditUserForm userId={id} />
     </div>
   )

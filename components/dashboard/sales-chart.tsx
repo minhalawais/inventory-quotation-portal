@@ -1,8 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
 import { TrendingUp } from "lucide-react"
+
+import { Panel, PanelBody, PanelHeader } from "@/components/shared/panel"
+import { EmptyState } from "@/components/shared/empty-state"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface SalesData {
   month: string
@@ -10,19 +14,20 @@ interface SalesData {
   revenue: number
 }
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+const GOLD = "hsl(43 74% 38%)"
+const TEAL = "hsl(174 58% 32%)"
+
+const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; color: string }>; label?: string }) => {
   if (!active || !payload?.length) return null
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-lg text-xs">
-      <p className="font-semibold text-gray-900 mb-1.5">{label}</p>
-      {payload.map((entry: any) => (
+    <div className="rounded-md border border-border bg-card p-3 text-xs shadow-sm">
+      <p className="mb-1.5 font-semibold text-foreground">{label}</p>
+      {payload.map((entry) => (
         <div key={entry.name} className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full" style={{ background: entry.color }} />
-          <span className="text-gray-500 capitalize">{entry.name === "sales" ? "Orders" : "Revenue"}:</span>
-          <span className="font-medium text-gray-900">
-            {entry.name === "sales"
-              ? `${entry.value}`
-              : `PKR ${(entry.value / 1000).toFixed(1)}K`}
+          <span className="h-2 w-2 rounded-sm" style={{ background: entry.color }} />
+          <span className="text-muted-foreground">{entry.name === "sales" ? "Orders" : "Revenue"}:</span>
+          <span className="font-medium tabular-nums text-foreground">
+            {entry.name === "sales" ? `${entry.value}` : `PKR ${entry.value.toLocaleString()}`}
           </span>
         </div>
       ))}
@@ -34,7 +39,9 @@ export default function SalesChart() {
   const [salesData, setSalesData] = useState<SalesData[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => { fetchSalesData() }, [])
+  useEffect(() => {
+    void fetchSalesData()
+  }, [])
 
   const fetchSalesData = async () => {
     try {
@@ -50,101 +57,74 @@ export default function SalesChart() {
   }
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white" style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.05)" }}>
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+    <Panel className="h-full">
+      <PanelHeader className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-gray-900">Sales Trends</h3>
-          <p className="text-xs text-gray-500 mt-0.5">Orders and revenue over time</p>
+          <h3 className="text-sm font-semibold text-foreground">Sales trends</h3>
+          <p className="mt-0.5 text-xs text-muted-foreground">Orders and revenue over time</p>
         </div>
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50">
-          <TrendingUp className="h-4 w-4 text-indigo-600" />
-        </div>
-      </div>
-
-      {/* Chart */}
-      <div className="p-5">
+        <TrendingUp className="h-4 w-4 text-muted-foreground" aria-hidden />
+      </PanelHeader>
+      <PanelBody>
         {loading ? (
-          <div className="flex h-56 items-center justify-center">
-            <div className="space-y-3 w-full">
-              {[80, 60, 90, 40, 75, 55].map((w, i) => (
-                <div key={i} className="flex items-end gap-2">
-                  <div className="h-2 animate-pulse rounded bg-gray-100" style={{ width: `${w}%` }} />
-                </div>
-              ))}
-            </div>
-          </div>
+          <Skeleton className="h-56 w-full rounded-md" />
         ) : salesData.length > 0 ? (
-          <>
-            {/* Legend */}
-            <div className="mb-4 flex items-center gap-5">
-              <div className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-sm bg-indigo-500" />
-                <span className="text-xs font-medium text-gray-500">Orders</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" />
-                <span className="text-xs font-medium text-gray-500">Revenue</span>
-              </div>
-            </div>
-            <div className="h-52">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={salesData} margin={{ top: 2, right: 4, bottom: 0, left: -20 }}>
-                  <defs>
-                    <linearGradient id="salesGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.15} />
-                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.15} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-                  <XAxis
-                    dataKey="month"
-                    tick={{ fontSize: 11, fill: "#9ca3af" }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 11, fill: "#9ca3af" }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Area
-                    type="monotone"
-                    dataKey="sales"
-                    stroke="#6366f1"
-                    strokeWidth={2}
-                    fill="url(#salesGrad)"
-                    dot={false}
-                    activeDot={{ r: 4, fill: "#6366f1", strokeWidth: 0 }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="revenue"
-                    stroke="#10b981"
-                    strokeWidth={2}
-                    fill="url(#revenueGrad)"
-                    dot={false}
-                    activeDot={{ r: 4, fill: "#10b981", strokeWidth: 0 }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </>
-        ) : (
-          <div className="flex h-56 flex-col items-center justify-center gap-2">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
-              <TrendingUp className="h-5 w-5 text-gray-400" />
-            </div>
-            <p className="text-sm font-medium text-gray-700">No sales data yet</p>
-            <p className="text-xs text-gray-400">Create quotations to see trends here</p>
+          <div className="h-56" role="img" aria-label="Sales and revenue area chart">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={salesData} margin={{ top: 4, right: 4, bottom: 0, left: -12 }}>
+                <defs>
+                  <linearGradient id="ordersGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={GOLD} stopOpacity={0.2} />
+                    <stop offset="95%" stopColor={GOLD} stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={TEAL} stopOpacity={0.2} />
+                    <stop offset="95%" stopColor={TEAL} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                <YAxis yAxisId="orders" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                <YAxis yAxisId="revenue" orientation="right" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} hide />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend
+                  verticalAlign="top"
+                  height={28}
+                  formatter={(value) => (value === "sales" ? "Orders" : "Revenue")}
+                  wrapperStyle={{ fontSize: 12 }}
+                />
+                <Area
+                  yAxisId="orders"
+                  type="monotone"
+                  dataKey="sales"
+                  stroke={GOLD}
+                  strokeWidth={2}
+                  fill="url(#ordersGrad)"
+                  dot={false}
+                  activeDot={{ r: 4, fill: GOLD, strokeWidth: 0 }}
+                />
+                <Area
+                  yAxisId="revenue"
+                  type="monotone"
+                  dataKey="revenue"
+                  stroke={TEAL}
+                  strokeWidth={2}
+                  fill="url(#revenueGrad)"
+                  dot={false}
+                  activeDot={{ r: 4, fill: TEAL, strokeWidth: 0 }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
+        ) : (
+          <EmptyState
+            icon={TrendingUp}
+            title="No sales data yet"
+            description="Create quotations to see trends here."
+            className="h-56 py-8"
+          />
         )}
-      </div>
-    </div>
+      </PanelBody>
+    </Panel>
   )
 }

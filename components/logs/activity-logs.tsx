@@ -1,23 +1,26 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { Search, Download, Activity, RefreshCw, ChevronDown, ChevronUp } from "lucide-react"
+
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
-  Search,
-  Download,
-  Activity,
-  User,
-  Package,
-  FileText,
-  Trash2,
-  CheckCircle2,
-  XCircle,
-  TriangleAlert,
-  RefreshCw,
-} from "lucide-react"
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { useToast } from "@/hooks/use-toast"
+import { EmptyState } from "@/components/shared/empty-state"
+import { ResponsiveRecordList } from "@/components/shared/responsive-record-list"
+import { StatusBadge } from "@/components/shared/status-badge"
+import { Toolbar, ToolbarGroup } from "@/components/shared/toolbar"
+import { Panel } from "@/components/shared/panel"
 
 interface ActivityLog {
   _id: string
@@ -34,51 +37,35 @@ interface ActivityLog {
   status: "success" | "error" | "warning"
 }
 
-const ACTION_ICONS: Record<string, React.ElementType> = {
-  CREATE: Package,
-  UPDATE: FileText,
-  DELETE: Trash2,
-  LOGIN: User,
-  LOGOUT: User,
-  VIEW: Activity,
-  BULK_UPDATE: Package,
-}
-
-const ACTION_COLORS: Record<string, string> = {
-  CREATE: "bg-emerald-50 text-emerald-600",
-  UPDATE: "bg-indigo-50 text-indigo-600",
-  DELETE: "bg-red-50 text-red-600",
-  LOGIN: "bg-sky-50 text-sky-600",
-  LOGOUT: "bg-gray-50 text-gray-600",
-  VIEW: "bg-gray-50 text-gray-600",
-  BULK_UPDATE: "bg-amber-50 text-amber-600",
-}
-
-const STATUS_CONFIG = {
-  success: {
-    dot: "bg-emerald-400",
-    badge: "bg-emerald-50 text-emerald-700 border border-emerald-200",
-    bar: "bg-emerald-500",
-    label: "Success",
-  },
-  error: {
-    dot: "bg-red-400",
-    badge: "bg-red-50 text-red-700 border border-red-200",
-    bar: "bg-red-500",
-    label: "Error",
-  },
-  warning: {
-    dot: "bg-amber-400",
-    badge: "bg-amber-50 text-amber-700 border border-amber-200",
-    bar: "bg-amber-500",
-    label: "Warning",
-  },
-}
-
 const ROLE_LABELS: Record<string, string> = {
   manager: "Manager",
   rider: "Rider",
   product_manager: "Product Mgr",
+}
+
+function statusTone(status: ActivityLog["status"]): "success" | "danger" | "warning" {
+  if (status === "success") return "success"
+  if (status === "error") return "danger"
+  return "warning"
+}
+
+function formatTimestamp(value: string) {
+  return new Date(value).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+}
+
+function formatCompactTimestamp(value: string) {
+  return new Date(value).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
 }
 
 export default function ActivityLogs() {
@@ -87,9 +74,12 @@ export default function ActivityLogs() {
   const [searchTerm, setSearchTerm] = useState("")
   const [filterAction, setFilterAction] = useState("all")
   const [filterStatus, setFilterStatus] = useState("all")
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const { toast } = useToast()
 
-  useEffect(() => { fetchLogs() }, [])
+  useEffect(() => {
+    fetchLogs()
+  }, [])
 
   const fetchLogs = async () => {
     try {
@@ -97,7 +87,7 @@ export default function ActivityLogs() {
       const response = await fetch("/api/logs")
       if (response.ok) setLogs(await response.json())
     } catch {
-      toast({ title: "Error", description: "Failed to fetch activity logs", variant: "destructive" })
+      toast({ title: "Could not load logs", description: "Failed to fetch activity logs", variant: "destructive" })
     } finally {
       setLoading(false)
     }
@@ -140,166 +130,221 @@ export default function ActivityLogs() {
     window.URL.revokeObjectURL(url)
   }
 
-  return (
-    <div className="space-y-5">
-      {/* Stats bar */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {[
-          { label: "Total Events", value: logs.length, icon: Activity, color: "text-indigo-600 bg-indigo-50", border: "border-l-indigo-500" },
-          { label: "Successful", value: logs.filter((l) => l.status === "success").length, icon: CheckCircle2, color: "text-emerald-600 bg-emerald-50", border: "border-l-emerald-500" },
-          { label: "Errors", value: logs.filter((l) => l.status === "error").length, icon: XCircle, color: "text-red-600 bg-red-50", border: "border-l-red-500" },
-          { label: "Warnings", value: logs.filter((l) => l.status === "warning").length, icon: TriangleAlert, color: "text-amber-600 bg-amber-50", border: "border-l-amber-500" },
-        ].map((s) => (
-          <div
-            key={s.label}
-            className={`rounded-xl border border-gray-200 border-l-4 ${s.border} bg-white p-4`}
-            style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.04)" }}
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{s.label}</p>
-                <p className="mt-1.5 text-2xl font-bold text-gray-950">{s.value}</p>
-              </div>
-              <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${s.color}`}>
-                <s.icon className="h-5 w-5" />
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+  const toggleExpanded = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
-      {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-gray-200 bg-white p-4" style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.04)" }}>
-        <div className="relative min-w-[200px] flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <Input
-            placeholder="Search logs…"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="h-9 rounded-lg pl-9 text-sm"
-          />
+  const hasActiveFilters = Boolean(searchTerm) || filterAction !== "all" || filterStatus !== "all"
+
+  const successCount = logs.filter((l) => l.status === "success").length
+  const errorCount = logs.filter((l) => l.status === "error").length
+  const warningCount = logs.filter((l) => l.status === "warning").length
+
+  const table = (
+    <Table>
+      <TableHeader>
+        <TableRow className="hover:bg-transparent">
+          <TableHead className="w-[140px]">Timestamp</TableHead>
+          <TableHead>User</TableHead>
+          <TableHead>Action</TableHead>
+          <TableHead>Resource</TableHead>
+          <TableHead className="min-w-[200px]">Details</TableHead>
+          <TableHead>IP</TableHead>
+          <TableHead>Status</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {filteredLogs.map((log) => {
+          const expanded = expandedIds.has(log._id)
+          const longDetails = log.details.length > 80
+          return (
+            <TableRow key={log._id} className="align-top">
+              <TableCell className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
+                {formatTimestamp(log.timestamp)}
+              </TableCell>
+              <TableCell>
+                <p className="text-sm font-medium text-foreground">{log.userName}</p>
+                <p className="text-[11px] text-muted-foreground">{ROLE_LABELS[log.userRole] ?? log.userRole}</p>
+              </TableCell>
+              <TableCell>
+                <span className="text-xs font-semibold uppercase tracking-wide text-foreground">{log.action}</span>
+              </TableCell>
+              <TableCell>
+                <p className="text-sm text-foreground">{log.resource}</p>
+                {log.resourceId && (
+                  <p className="font-mono text-[11px] text-muted-foreground">#{log.resourceId.slice(-6)}</p>
+                )}
+              </TableCell>
+              <TableCell>
+                <p className={expanded ? "text-xs text-muted-foreground" : "line-clamp-1 text-xs text-muted-foreground"}>
+                  {log.details}
+                </p>
+                {longDetails && (
+                  <button
+                    type="button"
+                    onClick={() => toggleExpanded(log._id)}
+                    className="mt-1 inline-flex items-center gap-0.5 text-[11px] font-medium text-foreground hover:underline"
+                  >
+                    {expanded ? (
+                      <>
+                        Less <ChevronUp className="h-3 w-3" />
+                      </>
+                    ) : (
+                      <>
+                        More <ChevronDown className="h-3 w-3" />
+                      </>
+                    )}
+                  </button>
+                )}
+              </TableCell>
+              <TableCell>
+                <span className="font-mono text-xs text-muted-foreground">{log.ipAddress || "—"}</span>
+              </TableCell>
+              <TableCell>
+                <StatusBadge tone={statusTone(log.status)} showDot={false}>
+                  {log.status}
+                </StatusBadge>
+              </TableCell>
+            </TableRow>
+          )
+        })}
+      </TableBody>
+    </Table>
+  )
+
+  const cards = filteredLogs.map((log) => {
+    const expanded = expandedIds.has(log._id)
+    return (
+      <div key={log._id} className="rounded-lg border border-border bg-card p-3">
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-xs tabular-nums text-muted-foreground">{formatCompactTimestamp(log.timestamp)}</p>
+          <StatusBadge tone={statusTone(log.status)} showDot={false}>
+            {log.status}
+          </StatusBadge>
         </div>
-        <Select value={filterAction} onValueChange={setFilterAction}>
-          <SelectTrigger className="h-9 w-[140px] rounded-lg text-sm">
-            <SelectValue placeholder="Action" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All actions</SelectItem>
-            <SelectItem value="CREATE">Create</SelectItem>
-            <SelectItem value="UPDATE">Update</SelectItem>
-            <SelectItem value="DELETE">Delete</SelectItem>
-            <SelectItem value="LOGIN">Login</SelectItem>
-            <SelectItem value="LOGOUT">Logout</SelectItem>
-            <SelectItem value="VIEW">View</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="h-9 w-[130px] rounded-lg text-sm">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="success">Success</SelectItem>
-            <SelectItem value="error">Error</SelectItem>
-            <SelectItem value="warning">Warning</SelectItem>
-          </SelectContent>
-        </Select>
-        <div className="flex gap-2 ml-auto">
-          <Button onClick={fetchLogs} variant="outline" size="sm" className="h-9 rounded-lg" disabled={loading}>
-            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} />
+        <p className="mt-2 text-sm font-medium text-foreground">{log.userName}</p>
+        <p className="text-[11px] text-muted-foreground">
+          {ROLE_LABELS[log.userRole] ?? log.userRole} · {log.action} · {log.resource}
+          {log.resourceId ? ` · #${log.resourceId.slice(-6)}` : ""}
+        </p>
+        <p className={expanded ? "mt-2 text-xs text-muted-foreground" : "mt-2 line-clamp-2 text-xs text-muted-foreground"}>
+          {log.details}
+        </p>
+        {log.details.length > 90 && (
+          <button
+            type="button"
+            onClick={() => toggleExpanded(log._id)}
+            className="mt-1 text-[11px] font-medium text-foreground hover:underline"
+          >
+            {expanded ? "Show less" : "Show more"}
+          </button>
+        )}
+        <p className="mt-2 font-mono text-[11px] text-muted-foreground">{log.ipAddress || "—"}</p>
+      </div>
+    )
+  })
+
+  return (
+    <div className="space-y-4">
+      <Toolbar>
+        <ToolbarGroup className="flex-1">
+          <div className="relative min-w-[180px] flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search logs…"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="h-9 pl-9 text-sm"
+            />
+          </div>
+          <Select value={filterAction} onValueChange={setFilterAction}>
+            <SelectTrigger className="h-9 w-[140px] text-sm">
+              <SelectValue placeholder="Action" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All actions</SelectItem>
+              <SelectItem value="CREATE">Create</SelectItem>
+              <SelectItem value="UPDATE">Update</SelectItem>
+              <SelectItem value="DELETE">Delete</SelectItem>
+              <SelectItem value="LOGIN">Login</SelectItem>
+              <SelectItem value="LOGOUT">Logout</SelectItem>
+              <SelectItem value="VIEW">View</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="h-9 w-[130px] text-sm">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="success">Success</SelectItem>
+              <SelectItem value="error">Error</SelectItem>
+              <SelectItem value="warning">Warning</SelectItem>
+            </SelectContent>
+          </Select>
+        </ToolbarGroup>
+        <ToolbarGroup>
+          <Button onClick={fetchLogs} variant="outline" size="sm" className="h-9" disabled={loading}>
+            <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
-          <Button onClick={exportLogs} variant="outline" size="sm" className="h-9 rounded-lg">
-            <Download className="h-3.5 w-3.5 mr-1.5" />
-            Export CSV
+          <Button onClick={exportLogs} variant="outline" size="sm" className="h-9">
+            <Download className="mr-1.5 h-3.5 w-3.5" />
+            Export
           </Button>
-        </div>
-      </div>
+        </ToolbarGroup>
+      </Toolbar>
 
-      {/* Results count */}
-      <div className="flex items-center justify-between px-1">
-        <p className="text-xs text-gray-500">
-          Showing <span className="font-semibold text-gray-900">{filteredLogs.length}</span> of {logs.length} events
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        <p>
+          Showing <span className="font-semibold tabular-nums text-foreground">{filteredLogs.length}</span> of{" "}
+          <span className="tabular-nums">{logs.length}</span>
+        </p>
+        <p className="tabular-nums">
+          {successCount} ok · {errorCount} err · {warningCount} warn
         </p>
       </div>
 
-      {/* Timeline */}
       {loading ? (
         <div className="space-y-3">
-          {[...Array(8)].map((_, i) => (
-            <div key={i} className="flex animate-pulse gap-4 rounded-xl border border-gray-200 bg-white p-4">
-              <div className="h-10 w-10 rounded-xl bg-gray-100 shrink-0" />
-              <div className="flex-1 space-y-2">
-                <div className="h-3.5 w-48 rounded bg-gray-100" />
-                <div className="h-3 w-64 rounded bg-gray-100" />
-                <div className="h-3 w-32 rounded bg-gray-100" />
-              </div>
-              <div className="h-5 w-16 rounded-full bg-gray-100 shrink-0" />
+          <Panel className="hidden overflow-hidden md:block">
+            <div className="divide-y divide-border">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="flex h-12 items-center gap-4 px-4">
+                  <Skeleton className="h-3 w-28" />
+                  <Skeleton className="h-3 w-32" />
+                  <Skeleton className="ml-auto h-3 w-16" />
+                </div>
+              ))}
             </div>
-          ))}
+          </Panel>
+          <div className="space-y-3 md:hidden">
+            {[...Array(4)].map((_, i) => (
+              <Skeleton key={i} className="h-24 w-full rounded-lg" />
+            ))}
+          </div>
         </div>
-      ) : filteredLogs.length > 0 ? (
-        <div className="space-y-2">
-          {filteredLogs.map((log) => {
-            const ActionIcon = ACTION_ICONS[log.action] ?? Activity
-            const actionColor = ACTION_COLORS[log.action] ?? "bg-gray-50 text-gray-600"
-            const statusConfig = STATUS_CONFIG[log.status]
-
-            return (
-              <div
-                key={log._id}
-                className="group flex items-start gap-4 rounded-xl border border-gray-200 bg-white p-4 transition-all duration-150 hover:border-gray-300 hover:shadow-sm"
-              >
-                {/* Action icon */}
-                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${actionColor}`}>
-                  <ActionIcon className="h-4.5 w-4.5" />
-                </div>
-
-                {/* Content */}
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2 mb-1">
-                    <p className="text-sm font-semibold text-gray-900">{log.userName}</p>
-                    <span className="rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
-                      {ROLE_LABELS[log.userRole] ?? log.userRole}
-                    </span>
-                    <span className="text-[11px] font-semibold text-gray-600 bg-gray-100 rounded px-1.5 py-0.5">
-                      {log.action}
-                    </span>
-                    <span className="text-[11px] text-gray-500">{log.resource}</span>
-                    {log.resourceId && (
-                      <span className="text-[11px] text-gray-400">#{log.resourceId.slice(-6)}</span>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-600 line-clamp-1">{log.details}</p>
-                  <div className="mt-1.5 flex items-center gap-3 text-[11px] text-gray-400">
-                    <span>IP: {log.ipAddress}</span>
-                    <span>·</span>
-                    <span>{new Date(log.timestamp).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
-                  </div>
-                </div>
-
-                {/* Status badge */}
-                <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusConfig.badge}`}>
-                  {statusConfig.label}
-                </span>
-              </div>
-            )
-          })}
-        </div>
+      ) : filteredLogs.length === 0 ? (
+        <Panel>
+          <EmptyState
+            icon={Activity}
+            title={logs.length === 0 ? "No logs yet" : "No matching logs"}
+            description={
+              logs.length === 0
+                ? "Activity appears here as the team uses the portal."
+                : hasActiveFilters
+                  ? "Try adjusting search or filters."
+                  : "No events to show."
+            }
+          />
+        </Panel>
       ) : (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-gray-200 bg-white py-16 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
-            <Activity className="h-6 w-6 text-gray-400" />
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-gray-900">No logs found</p>
-            <p className="mt-1 text-xs text-gray-500">
-              {searchTerm || filterAction !== "all" || filterStatus !== "all"
-                ? "Try adjusting your filters."
-                : "Activity will appear here as your team uses the workspace."}
-            </p>
-          </div>
-        </div>
+        <ResponsiveRecordList table={table} cards={cards} />
       )}
     </div>
   )

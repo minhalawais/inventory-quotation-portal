@@ -3,20 +3,41 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { Loader2 } from "lucide-react"
+import { useSession } from "next-auth/react"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, Save, UserRound } from "lucide-react"
-import { useSession } from "next-auth/react"
 import { logActivity } from "@/lib/logger"
+import { FormSection, FormActions } from "@/components/shared/form-section"
+import { Panel, PanelBody } from "@/components/shared/panel"
+import { Skeleton } from "@/components/ui/skeleton"
 import IPAddressManager from "./ip-address-manager"
 
 interface EditUserFormProps {
   userId: string
 }
+
+const ROLE_OPTIONS = [
+  {
+    value: "manager",
+    label: "Manager",
+    description: "Dashboard, users, products, quotations, and activity logs.",
+  },
+  {
+    value: "rider",
+    label: "Rider",
+    description: "Products, stock exceptions, and assigned quotations.",
+  },
+  {
+    value: "product_manager",
+    label: "Product Manager",
+    description: "Products and stock exceptions only.",
+  },
+] as const
 
 export default function EditUserForm({ userId }: EditUserFormProps) {
   const [formData, setFormData] = useState({
@@ -35,6 +56,8 @@ export default function EditUserForm({ userId }: EditUserFormProps) {
   const { toast } = useToast()
   const { data: session } = useSession()
 
+  const selectedRole = ROLE_OPTIONS.find((role) => role.value === formData.role)
+
   useEffect(() => {
     fetchUser()
   }, [userId])
@@ -51,20 +74,20 @@ export default function EditUserForm({ userId }: EditUserFormProps) {
           contact: user.contact || "",
           password: "",
           confirmPassword: "",
-          status: user.status || "active", // Add status
+          status: user.status || "active",
           allowedIps: user.allowedIps || ["*"],
         })
       } else {
         toast({
-          title: "Error",
-          description: "User not found",
+          title: "User not found",
+          description: "This account may have been removed.",
           variant: "destructive",
         })
         router.push("/users")
       }
-    } catch (error) {
+    } catch {
       toast({
-        title: "Error",
+        title: "Could not load user",
         description: "Failed to fetch user",
         variant: "destructive",
       })
@@ -79,8 +102,8 @@ export default function EditUserForm({ userId }: EditUserFormProps) {
 
     if (formData.password && formData.password !== formData.confirmPassword) {
       toast({
-        title: "Error",
-        description: "Passwords do not match",
+        title: "Passwords do not match",
+        description: "Enter the same password in both fields.",
         variant: "destructive",
       })
       setLoading(false)
@@ -94,9 +117,8 @@ export default function EditUserForm({ userId }: EditUserFormProps) {
         role: formData.role,
         contact: formData.contact,
         allowedIps: formData.allowedIps,
-        status: formData.status, // Add status
+        status: formData.status,
       }
-      
 
       if (formData.password) {
         updateData.password = formData.password
@@ -111,7 +133,6 @@ export default function EditUserForm({ userId }: EditUserFormProps) {
       })
 
       if (response.ok) {
-        // Log activity
         if (session) {
           await logActivity({
             userId: session.user.id,
@@ -126,8 +147,8 @@ export default function EditUserForm({ userId }: EditUserFormProps) {
         }
 
         toast({
-          title: "Success",
-          description: "User updated successfully",
+          title: "User updated",
+          description: `Changes to ${formData.name} were saved.`,
         })
         router.push("/users")
       } else {
@@ -135,7 +156,6 @@ export default function EditUserForm({ userId }: EditUserFormProps) {
         throw new Error(errorData.error || "Failed to update user")
       }
     } catch (error) {
-      // Log error activity
       if (session) {
         await logActivity({
           userId: session.user.id,
@@ -150,7 +170,7 @@ export default function EditUserForm({ userId }: EditUserFormProps) {
       }
 
       toast({
-        title: "Error",
+        title: "Could not update user",
         description: error instanceof Error ? error.message : "Failed to update user",
         variant: "destructive",
       })
@@ -161,77 +181,78 @@ export default function EditUserForm({ userId }: EditUserFormProps) {
 
   if (fetchLoading) {
     return (
-      <div className="space-y-6">
-        <Card className="max-w-4xl">
-          <CardContent className="p-6">
-            <div className="animate-pulse space-y-4">
-              <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-              <div className="h-10 bg-gray-200 rounded"></div>
-              <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-              <div className="h-10 bg-gray-200 rounded"></div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="mx-auto max-w-[840px]">
+        <Panel>
+          <PanelBody className="space-y-4">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-24 w-full" />
+          </PanelBody>
+        </Panel>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <Card className="max-w-4xl">
-        <CardContent className="p-5 sm:p-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="flex items-center gap-3 border-b border-gray-100 pb-5">
-              <div className="form-section-icon"><UserRound className="h-4 w-4" /></div>
-              <div>
-                <h3 className="text-sm font-semibold text-gray-950">Account profile</h3>
-                <p className="mt-0.5 text-xs text-gray-500">Manage identity, role, status, and credentials.</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <form onSubmit={handleSubmit} className="mx-auto max-w-[840px]">
+      <Panel>
+        <PanelBody className="space-y-0">
+          <FormSection title="Account profile" description="Name and sign-in email.">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
+                <Label htmlFor="name">Full name</Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
-                  placeholder="Enter full name"
+                  className="h-10"
+                  placeholder="Full name"
                 />
               </div>
-
               <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
+                <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
-                  placeholder="Enter email address"
+                  className="h-10"
+                  placeholder="name@example.com"
                 />
               </div>
             </div>
+          </FormSection>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormSection title="Role and status" className="pt-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="role">Role</Label>
                 <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Role" />
+                  <SelectTrigger id="role" className="h-10">
+                    <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="manager">Manager</SelectItem>
-                    <SelectItem value="rider">Rider</SelectItem>
-                    <SelectItem value="product_manager">Product Manager</SelectItem>
+                    {ROLE_OPTIONS.map((role) => (
+                      <SelectItem key={role.value} value={role.value}>
+                        {role.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
+                {selectedRole && <p className="text-xs text-muted-foreground">{selectedRole.description}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select Status" />
+                <Label htmlFor="status">Account status</Label>
+                <Select
+                  value={formData.status}
+                  onValueChange={(value) => setFormData({ ...formData, status: value })}
+                >
+                  <SelectTrigger id="status" className="h-10">
+                    <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="active">Active</SelectItem>
@@ -239,76 +260,90 @@ export default function EditUserForm({ userId }: EditUserFormProps) {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+          </FormSection>
+
+          <FormSection title="Contact" className="pt-6">
+            <div className="space-y-2">
+              <Label htmlFor="contact">Contact number</Label>
+              <Input
+                id="contact"
+                value={formData.contact}
+                onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
+                className="h-10"
+                placeholder="Optional phone number"
+              />
+            </div>
+          </FormSection>
+
+          <FormSection
+            title="Network access"
+            description="Limit sign-in to allowed IP addresses."
+            className="pt-6"
+          >
+            <IPAddressManager
+              allowedIps={formData.allowedIps}
+              onChange={(ips) => setFormData({ ...formData, allowedIps: ips })}
+              disabled={loading}
+            />
+          </FormSection>
+
+          <FormSection
+            title="Password"
+            description="Leave blank to keep the current password."
+            className="pt-6 opacity-90"
+          >
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="contact">Contact Number</Label>
+                <Label htmlFor="password" className="text-muted-foreground">
+                  New password
+                </Label>
                 <Input
-                  id="contact"
-                  value={formData.contact}
-                  onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
-                  placeholder="Enter contact number"
+                  id="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="h-10"
+                  placeholder="Optional"
+                  minLength={6}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword" className="text-muted-foreground">
+                  Confirm new password
+                </Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  value={formData.confirmPassword}
+                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                  className="h-10"
+                  placeholder="Optional"
+                  minLength={6}
                 />
               </div>
             </div>
+          </FormSection>
+        </PanelBody>
 
-            <div className="space-y-4">
-              <div className="border-t pt-4">
-                <h3 className="mb-1 text-sm font-semibold text-gray-950">Change password</h3>
-                <p className="mb-4 text-xs text-gray-500">Leave both fields empty to keep the current password.</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="password">New Password</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      placeholder="Enter new password"
-                      minLength={6}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                    <Input
-                      id="confirmPassword"
-                      type="password"
-                      value={formData.confirmPassword}
-                      onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                      placeholder="Confirm new password"
-                      minLength={6}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-col-reverse gap-3 border-t border-gray-100 pt-5 sm:flex-row sm:justify-end">
-              <Button type="submit" disabled={loading}>
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving changes…
-                  </>
-                ) : (
-                  <><Save className="h-4 w-4" /> Save changes</>
-                )}
-              </Button>
-
-              <Button type="button" variant="outline" onClick={() => router.back()}>
-                Cancel
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-
-      <div className="max-w-4xl">
-        <IPAddressManager
-          allowedIps={formData.allowedIps}
-          onChange={(ips) => setFormData({ ...formData, allowedIps: ips })}
-          disabled={loading}
-        />
-      </div>
-    </div>
+        <div className="border-t border-border px-4 py-3 sm:px-5">
+          <FormActions className="border-0 pt-0">
+            <Button type="button" variant="outline" onClick={() => router.back()} disabled={loading}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                "Save changes"
+              )}
+            </Button>
+          </FormActions>
+        </div>
+      </Panel>
+    </form>
   )
 }

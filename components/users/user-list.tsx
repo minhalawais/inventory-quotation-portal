@@ -1,16 +1,39 @@
 "use client"
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { useToast } from "@/hooks/use-toast"
-import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
-import { Edit, Trash2, Users, Plus, Wifi, WifiOff, Shield, Globe, Settings } from "lucide-react"
-import { useUserStatus } from "@/hooks/use-user-status"
-import { type UserStatus, getStatusColor, getStatusText, getLastSeenText } from "@/lib/status-utils"
-import { cn } from "@/lib/utils"
+
 import { useState } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import IPAddressManager from "./ip-address-manager"
+import { useRouter } from "next/navigation"
+import { Edit, Trash2, Users, MoreHorizontal, Settings, Globe, Shield } from "lucide-react"
+
+import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,35 +44,53 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { useToast } from "@/hooks/use-toast"
+import { useUserStatus } from "@/hooks/use-user-status"
+import { type UserStatus, getLastSeenText } from "@/lib/status-utils"
+import { EmptyState, ErrorState } from "@/components/shared/empty-state"
+import { RecordActions } from "@/components/shared/record-actions"
+import { ResponsiveRecordList } from "@/components/shared/responsive-record-list"
+import { StatusBadge } from "@/components/shared/status-badge"
+import { Panel } from "@/components/shared/panel"
+import IPAddressManager from "./ip-address-manager"
 
 type UserWithMeta = UserStatus & {
   allowedIps?: string[]
   status?: string
 }
 
-const ROLE_CONFIG: Record<string, { label: string; className: string }> = {
-  manager: { label: "Manager", className: "bg-indigo-50 text-indigo-700 border border-indigo-200" },
-  rider: { label: "Rider", className: "bg-emerald-50 text-emerald-700 border border-emerald-200" },
-  product_manager: { label: "Product Mgr", className: "bg-violet-50 text-violet-700 border border-violet-200" },
+const ROLE_LABELS: Record<string, string> = {
+  manager: "Manager",
+  rider: "Rider",
+  product_manager: "Product Manager",
 }
 
-const AVATAR_GRADIENTS = [
-  "border-blue-100 bg-blue-50 text-blue-700",
-  "border-emerald-100 bg-emerald-50 text-emerald-700",
-  "border-sky-100 bg-sky-50 text-sky-700",
-  "border-amber-100 bg-amber-50 text-amber-700",
-  "border-rose-100 bg-rose-50 text-rose-700",
-]
+function formatIpSummary(allowedIps?: string[]) {
+  if (!allowedIps || allowedIps.length === 0) {
+    return { label: "None", tone: "danger" as const, icon: Shield }
+  }
+  if (allowedIps.includes("*")) {
+    return { label: "Any IP", tone: "success" as const, icon: Globe }
+  }
+  return {
+    label: `${allowedIps.length} IP${allowedIps.length === 1 ? "" : "s"}`,
+    tone: "neutral" as const,
+    icon: Shield,
+  }
+}
 
 export default function UserList() {
   const { users, loading, error, refetch } = useUserStatus()
   const { toast } = useToast()
-  const { data: session } = useSession()
   const router = useRouter()
+  const [detailUser, setDetailUser] = useState<UserWithMeta | null>(null)
   const [selectedUser, setSelectedUser] = useState<UserWithMeta | null>(null)
   const [ipModalOpen, setIpModalOpen] = useState(false)
   const [updatingIPs, setUpdatingIPs] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<UserWithMeta | null>(null)
+
+  const typedUsers = users as UserWithMeta[]
+  const onlineCount = typedUsers.filter((u) => u.isOnline).length
 
   const handleEdit = (userId: string) => router.push(`/users/edit/${userId}`)
 
@@ -59,9 +100,10 @@ export default function UserList() {
       if (response.ok) {
         refetch()
         toast({ title: "User removed", description: `${user.name} has been deleted.` })
+        if (detailUser?._id === user._id) setDetailUser(null)
       }
     } catch {
-      toast({ title: "Error", description: "Failed to delete user", variant: "destructive" })
+      toast({ title: "Could not delete user", description: "Failed to delete user", variant: "destructive" })
     }
   }
 
@@ -88,10 +130,18 @@ export default function UserList() {
       if (response.ok) {
         toast({ title: "IP addresses updated" })
         setIpModalOpen(false)
+        setSelectedUser((prev) => (prev ? { ...prev, allowedIps: newIPs } : prev))
+        setDetailUser((prev) => (prev && prev._id === selectedUser._id ? { ...prev, allowedIps: newIPs } : prev))
         refetch()
-      } else throw new Error()
+      } else {
+        throw new Error()
+      }
     } catch {
-      toast({ title: "Error", description: "Failed to update IP addresses", variant: "destructive" })
+      toast({
+        title: "Could not update IPs",
+        description: "Failed to update IP addresses",
+        variant: "destructive",
+      })
     } finally {
       setUpdatingIPs(false)
     }
@@ -100,23 +150,21 @@ export default function UserList() {
   if (loading) {
     return (
       <div className="space-y-4">
-        {/* Summary bar skeleton */}
-        <div className="h-14 animate-pulse rounded-xl border border-gray-200 bg-white" />
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="animate-pulse rounded-xl border border-gray-200 bg-white p-5">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="h-11 w-11 rounded-full bg-gray-100" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-3.5 w-28 rounded bg-gray-100" />
-                  <div className="h-3 w-36 rounded bg-gray-100" />
-                </div>
+        <Skeleton className="h-10 w-full rounded-lg" />
+        <Panel className="hidden overflow-hidden md:block">
+          <div className="divide-y divide-border">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="flex h-14 items-center gap-4 px-4">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="ml-auto h-4 w-20" />
               </div>
-              <div className="space-y-2">
-                <div className="h-3 w-full rounded bg-gray-100" />
-                <div className="h-3 w-4/5 rounded bg-gray-100" />
-              </div>
-            </div>
+            ))}
+          </div>
+        </Panel>
+        <div className="space-y-3 md:hidden">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-28 w-full rounded-lg" />
           ))}
         </div>
       </div>
@@ -125,198 +173,308 @@ export default function UserList() {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center gap-3 py-12 text-center">
-        <p className="text-sm text-red-600">Failed to load users: {error}</p>
-        <Button onClick={refetch} variant="outline" size="sm">Retry</Button>
-      </div>
+      <Panel>
+        <ErrorState
+          icon={Users}
+          title="Could not load users"
+          description={error}
+          actionLabel="Retry"
+          onAction={() => void refetch()}
+        />
+      </Panel>
     )
   }
 
-  const onlineCount = users.filter((u) => u.isOnline).length
-
-  return (
-    <div className="space-y-4">
-      {/* Summary bar */}
-      <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-5 py-3.5" style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.04)" }}>
-        <p className="text-sm font-semibold text-gray-900">
-          {users.length} {users.length === 1 ? "member" : "members"}
-        </p>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-emerald-100" />
-            <span className="text-xs font-medium text-gray-700">{onlineCount} online</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-gray-300" />
-            <span className="text-xs font-medium text-gray-500">{users.length - onlineCount} offline</span>
-          </div>
-        </div>
-      </div>
-
-      {/* User cards grid */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {(users as UserWithMeta[]).map((user, idx) => {
-          const roleConfig = ROLE_CONFIG[user.role] ?? { label: user.role, className: "bg-gray-100 text-gray-700 border border-gray-200" }
-          const gradient = AVATAR_GRADIENTS[idx % AVATAR_GRADIENTS.length]
-
+  const table = (
+    <Table>
+      <TableHeader>
+        <TableRow className="hover:bg-transparent">
+          <TableHead className="w-[28%]">User</TableHead>
+          <TableHead>Role</TableHead>
+          <TableHead>Contact</TableHead>
+          <TableHead>Account</TableHead>
+          <TableHead>Presence</TableHead>
+          <TableHead>IP access</TableHead>
+          <TableHead className="text-right">Actions</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {typedUsers.map((user) => {
+          const accountActive = (user.status || "active") === "active"
+          const ip = formatIpSummary(user.allowedIps)
           return (
-            <Card
+            <TableRow
               key={user._id}
-              className="overflow-hidden rounded-xl border border-gray-200 bg-white transition-all duration-200 hover:border-gray-300"
-              style={{ boxShadow: "0 1px 3px rgba(15,23,42,0.05)" }}
+              className="group cursor-pointer"
+              onClick={() => setDetailUser(user)}
             >
-              <CardContent className="p-5">
-                {/* User row */}
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    {/* Avatar with online indicator */}
-                    <div className="relative shrink-0">
-                      <div
-                        className={`flex h-11 w-11 items-center justify-center rounded-[12px] border ${gradient} text-sm font-bold`}
-                      >
-                        {user.name.charAt(0).toUpperCase()}
-                      </div>
-                      <span
-                        className={cn(
-                          "absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white",
-                          user.isOnline ? "bg-emerald-400" : "bg-gray-300",
-                        )}
-                      />
-                    </div>
-
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-gray-900">{user.name}</p>
-                      <p className="truncate text-xs text-gray-500">{user.email}</p>
-                      <div className="mt-1 flex items-center gap-1.5">
-                        {user.isOnline ? (
-                          <>
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                            <span className="text-[11px] font-medium text-emerald-600">Online</span>
-                          </>
-                        ) : (
-                          <>
-                            <span className="h-1.5 w-1.5 rounded-full bg-gray-300" />
-                            <span className="text-[11px] text-gray-400">
-                              {user.lastSeen ? getLastSeenText(user.lastSeen) : "Offline"}
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Role badge */}
-                  <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${roleConfig.className}`}>
-                    {roleConfig.label}
-                  </span>
+              <TableCell>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-foreground">{user.name}</p>
+                  <p className="truncate text-xs text-muted-foreground">{user.email}</p>
                 </div>
-
-                {/* Details */}
-                <div className="mb-4 space-y-2 rounded-lg border border-gray-100 bg-gray-50/70 p-3">
-                  {user.contact && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-medium uppercase tracking-wide text-gray-400">Contact</span>
-                      <span className="text-xs text-gray-700">{user.contact}</span>
-                    </div>
+              </TableCell>
+              <TableCell>
+                <span className="text-sm text-foreground">{ROLE_LABELS[user.role] ?? user.role}</span>
+              </TableCell>
+              <TableCell>
+                <span className="text-sm text-muted-foreground">{user.contact || "—"}</span>
+              </TableCell>
+              <TableCell>
+                <StatusBadge tone={accountActive ? "success" : "neutral"}>
+                  {accountActive ? "Active" : "Inactive"}
+                </StatusBadge>
+              </TableCell>
+              <TableCell>
+                <div className="space-y-1">
+                  <StatusBadge tone={user.isOnline ? "success" : "neutral"}>
+                    {user.isOnline ? "Online" : "Offline"}
+                  </StatusBadge>
+                  {!user.isOnline && user.lastSeen && (
+                    <p className="text-[11px] text-muted-foreground">{getLastSeenText(user.lastSeen)}</p>
                   )}
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-medium uppercase tracking-wide text-gray-400">IP Access</span>
-                    <span className="text-xs text-gray-700">
-                      {!user.allowedIps || user.allowedIps.length === 0 ? (
-                        <span className="text-red-500">None configured</span>
-                      ) : user.allowedIps.includes("*") ? (
-                        <span className="flex items-center gap-1 text-emerald-600">
-                          <Globe className="h-3 w-3" /> All IPs
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1 text-indigo-600">
-                          <Shield className="h-3 w-3" /> {user.allowedIps.length} IP{user.allowedIps.length !== 1 ? "s" : ""}
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-medium uppercase tracking-wide text-gray-400">Joined</span>
-                    <span className="text-xs text-gray-700">
-                      {new Date(user.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                    </span>
-                  </div>
                 </div>
-
-                {/* Actions */}
-                <div className="flex items-center gap-2">
-                  <Dialog open={ipModalOpen} onOpenChange={setIpModalOpen}>
-                    <DialogTrigger asChild>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleManageIPs(user)}
-                        className="h-8 flex-1 rounded-lg text-xs font-medium hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
-                        title="Manage IP addresses"
-                      >
-                        <Settings className="mr-1.5 h-3.5 w-3.5" />
-                        IPs
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-2xl rounded-xl">
-                      <DialogHeader>
-                        <DialogTitle className="text-base font-semibold">
-                          Manage IP Addresses — {selectedUser?.name}
-                        </DialogTitle>
-                      </DialogHeader>
-                      {selectedUser && (
-                        <IPAddressManager
-                          allowedIps={selectedUser.allowedIps || ["*"]}
-                          onChange={updateUserIPs}
-                          disabled={updatingIPs}
-                        />
-                      )}
-                    </DialogContent>
-                  </Dialog>
-
+              </TableCell>
+              <TableCell>
+                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <ip.icon className="h-3.5 w-3.5" aria-hidden />
+                  {ip.label}
+                </span>
+              </TableCell>
+              <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                <RecordActions>
                   <Button
+                    type="button"
+                    variant="ghost"
                     size="sm"
-                    variant="outline"
+                    className="h-9"
                     onClick={() => handleEdit(user._id)}
-                    className="h-8 flex-1 rounded-lg text-xs font-medium hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
-                    title="Edit user"
                   >
                     <Edit className="mr-1.5 h-3.5 w-3.5" />
                     Edit
                   </Button>
-
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setDeleteTarget(user)}
-                    className="h-8 w-8 shrink-0 rounded-lg p-0 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-                    title="Delete user"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button type="button" variant="ghost" size="icon" className="h-9 w-9" aria-label="More actions">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-44">
+                      <DropdownMenuItem onClick={() => setDetailUser(user)}>View details</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleManageIPs(user)}>
+                        <Settings className="mr-2 h-3.5 w-3.5" />
+                        Manage IPs
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleEdit(user._id)}>
+                        <Edit className="mr-2 h-3.5 w-3.5" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => setDeleteTarget(user)}
+                      >
+                        <Trash2 className="mr-2 h-3.5 w-3.5" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </RecordActions>
+              </TableCell>
+            </TableRow>
           )
         })}
+      </TableBody>
+    </Table>
+  )
 
-        {users.length === 0 && (
-          <div className="col-span-full flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-gray-200 bg-white py-16 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gray-100">
-              <Users className="h-7 w-7 text-gray-400" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-gray-900">No users yet</p>
-              <p className="mt-1 text-xs text-gray-500">Add your first team member to get started.</p>
-            </div>
-            <Button onClick={() => router.push("/users/add")} size="sm" className="mt-2 h-9 rounded-lg">
-              <Plus className="mr-2 h-3.5 w-3.5" /> Add user
-            </Button>
-          </div>
-        )}
+  const cards = typedUsers.map((user) => {
+    const accountActive = (user.status || "active") === "active"
+    const ip = formatIpSummary(user.allowedIps)
+    return (
+      <div key={user._id} className="rounded-lg border border-border bg-card p-3">
+        <div className="flex items-start justify-between gap-2">
+          <button type="button" onClick={() => setDetailUser(user)} className="min-w-0 text-left">
+            <p className="truncate text-sm font-medium text-foreground">{user.name}</p>
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">{user.email}</p>
+          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0" aria-label="Actions">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuItem onClick={() => setDetailUser(user)}>View details</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleManageIPs(user)}>
+                <Settings className="mr-2 h-3.5 w-3.5" />
+                Manage IPs
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleEdit(user._id)}>
+                <Edit className="mr-2 h-3.5 w-3.5" />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={() => setDeleteTarget(user)}
+              >
+                <Trash2 className="mr-2 h-3.5 w-3.5" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground">{ROLE_LABELS[user.role] ?? user.role}</span>
+          <StatusBadge tone={accountActive ? "success" : "neutral"}>
+            {accountActive ? "Active" : "Inactive"}
+          </StatusBadge>
+          <StatusBadge tone={user.isOnline ? "success" : "neutral"}>
+            {user.isOnline ? "Online" : user.lastSeen ? getLastSeenText(user.lastSeen) : "Offline"}
+          </StatusBadge>
+        </div>
+        <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+          <ip.icon className="h-3.5 w-3.5" aria-hidden />
+          {ip.label}
+        </p>
       </div>
+    )
+  })
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+        <p>
+          <span className="font-semibold tabular-nums text-foreground">{typedUsers.length}</span>{" "}
+          {typedUsers.length === 1 ? "member" : "members"}
+        </p>
+        <p>
+          <span className="font-semibold tabular-nums text-foreground">{onlineCount}</span> online ·{" "}
+          <span className="font-semibold tabular-nums text-foreground">{typedUsers.length - onlineCount}</span> offline
+        </p>
+      </div>
+
+      {typedUsers.length === 0 ? (
+        <Panel>
+          <EmptyState
+            icon={Users}
+            title="No users yet"
+            description="Add a team member to grant portal access."
+            actionLabel="Add user"
+            onAction={() => router.push("/users/add")}
+          />
+        </Panel>
+      ) : (
+        <ResponsiveRecordList table={table} cards={cards} />
+      )}
+
+      <Sheet open={Boolean(detailUser)} onOpenChange={(open) => !open && setDetailUser(null)}>
+        <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+          {detailUser && (
+            <>
+              <SheetHeader>
+                <SheetTitle className="pr-6 text-left text-base">{detailUser.name}</SheetTitle>
+                <SheetDescription className="text-left">{detailUser.email}</SheetDescription>
+              </SheetHeader>
+
+              <div className="mt-6 space-y-5 text-sm">
+                <dl className="space-y-3">
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-muted-foreground">Role</dt>
+                    <dd className="font-medium">{ROLE_LABELS[detailUser.role] ?? detailUser.role}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-muted-foreground">Contact</dt>
+                    <dd className="font-medium">{detailUser.contact || "—"}</dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-muted-foreground">Account</dt>
+                    <dd>
+                      <StatusBadge tone={(detailUser.status || "active") === "active" ? "success" : "neutral"}>
+                        {(detailUser.status || "active") === "active" ? "Active" : "Inactive"}
+                      </StatusBadge>
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-muted-foreground">Presence</dt>
+                    <dd className="text-right">
+                      <StatusBadge tone={detailUser.isOnline ? "success" : "neutral"}>
+                        {detailUser.isOnline ? "Online" : "Offline"}
+                      </StatusBadge>
+                      {!detailUser.isOnline && detailUser.lastSeen && (
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          {getLastSeenText(detailUser.lastSeen)}
+                        </p>
+                      )}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-muted-foreground">Joined</dt>
+                    <dd className="font-medium">
+                      {new Date(detailUser.createdAt).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </dd>
+                  </div>
+                </dl>
+
+                <div className="border-t border-border pt-4">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+                    Allowed IPs
+                  </p>
+                  {!detailUser.allowedIps || detailUser.allowedIps.length === 0 ? (
+                    <p className="text-sm text-destructive">None configured</p>
+                  ) : detailUser.allowedIps.includes("*") ? (
+                    <p className="text-sm text-foreground">Allow any IP</p>
+                  ) : (
+                    <ul className="space-y-1">
+                      {detailUser.allowedIps.map((ip) => (
+                        <li key={ip} className="font-mono text-xs text-foreground">
+                          {ip}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-2 border-t border-border pt-4 sm:flex-row sm:justify-end">
+                  <Button type="button" variant="outline" size="sm" onClick={() => handleManageIPs(detailUser)}>
+                    <Settings className="mr-1.5 h-3.5 w-3.5" />
+                    Manage IPs
+                  </Button>
+                  <Button type="button" size="sm" onClick={() => handleEdit(detailUser._id)}>
+                    <Edit className="mr-1.5 h-3.5 w-3.5" />
+                    Edit
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      <Dialog open={ipModalOpen} onOpenChange={setIpModalOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-base">
+              Manage IP addresses{selectedUser ? ` — ${selectedUser.name}` : ""}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedUser && (
+            <IPAddressManager
+              allowedIps={selectedUser.allowedIps || ["*"]}
+              onChange={updateUserIPs}
+              disabled={updatingIPs}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-        <AlertDialogContent className="rounded-xl">
+        <AlertDialogContent className="max-w-[440px]">
           <AlertDialogHeader>
             <AlertDialogTitle>Remove team member?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -326,7 +484,7 @@ export default function UserList() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-red-600 text-white hover:bg-red-700"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => {
                 if (deleteTarget) void deleteUser(deleteTarget)
                 setDeleteTarget(null)
