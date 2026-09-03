@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "npx --yes tsx --test tests/functional.test.ts tests/live-smoke.test.ts",
     "clean": "node -e \"const fs=require('fs');const p='.next';if(fs.existsSync(p)){fs.rmSync(p,{recursive:true,force:true});console.log('.next cleared');}else{console.log('.next not found, skipping');}\"",
     "setup-database": "node scripts/setup-database.js",
     "seed-products": "node scripts/seed-products.js",
