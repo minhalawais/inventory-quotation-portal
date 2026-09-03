@@ -18,6 +18,9 @@ interface QuotationItem {
   productImage?: string | null
   productImages?: string[]
   sentQuantity?: number
+  department?: string
+  category?: string
+  subCategory?: string
 }
 
 interface Quotation {

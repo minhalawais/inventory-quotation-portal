@@ -5,6 +5,7 @@ import { ObjectId } from "mongodb"
 import { authOptions } from "@/lib/auth"
 import clientPromise from "@/lib/mongodb"
 import { generateQuotationPdf } from "@/lib/quotation-pdf"
+import { classificationFromProduct } from "@/lib/quotation-catalog"
 import { ensureQuotationNumber, quotationPdfFilename } from "@/lib/quotation-number"
 
 export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
@@ -36,6 +37,7 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
             item.productImage ||
             (product?.imagePaths?.[0] as string | undefined) ||
             (product?.imagePath as string | undefined),
+          ...classificationFromProduct(product),
         }
       }),
     )

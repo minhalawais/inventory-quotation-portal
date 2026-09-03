@@ -6,6 +6,7 @@ import PublicQuotationView from "@/components/quotations/public-quotation-view"
 import { COMPANY, quotationRefDisplay } from "@/lib/company"
 import { quotationShowsPrices, resolveStoredProductImages } from "@/lib/quotation"
 import { ensureQuotationNumber } from "@/lib/quotation-number"
+import { classificationFromProduct } from "@/lib/quotation-catalog"
 
 interface QuotationItem {
   productId: string
@@ -79,6 +80,7 @@ async function getQuotation(id: string): Promise<Quotation | null> {
             productImage: productImages[0] || null,
             productImages,
             sentQuantity: item.sentQuantity,
+            ...classificationFromProduct(product),
           }
         } catch {
           return {
@@ -89,6 +91,9 @@ async function getQuotation(id: string): Promise<Quotation | null> {
             productImage: null,
             productImages: [],
             sentQuantity: item.sentQuantity,
+            department: "",
+            category: "",
+            subCategory: "",
           }
         }
       }),

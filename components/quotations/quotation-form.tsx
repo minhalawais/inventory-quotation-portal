@@ -1,9 +1,9 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect, useMemo } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Plus, Minus, FileText, Search, Trash2, Loader2 } from "lucide-react"
+import { FileText, Loader2, Minus, Plus, Search, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,12 +16,23 @@ import { useIsMobile } from "@/hooks/use-mobile"
 import { Panel, PanelBody, PanelHeader } from "@/components/shared/panel"
 import { FormActions } from "@/components/shared/form-section"
 import { ProductThumb } from "@/components/shared/product-thumb"
-import { EmptyState } from "@/components/shared/empty-state"
 import { QuotationItemImagePicker } from "@/components/quotations/quotation-item-image-picker"
+import { QuotationClassificationSelects } from "@/components/quotations/quotation-classification-selects"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { cn } from "@/lib/utils"
 import { classifyProduct, formatClassification } from "@/lib/product-classification"
 import { collectProductImages } from "@/lib/product-images"
+import {
+  QUOTE_COMPACT_THRESHOLD,
+  QUOTE_FIND_THRESHOLD,
+  asId,
+  classificationFromProduct,
+  groupQuoteItems,
+  mergeCatalogLineItems,
+  productsMatchingNodes,
+  quotationItemMatchesQuery,
+} from "@/lib/quotation-catalog"
+import { useTaxonomy } from "@/components/products/use-taxonomy"
 
 interface Product {
   _id: string
@@ -32,6 +43,9 @@ interface Product {
   department?: string
   category?: string
   subCategory?: string
+  departmentId?: string
+  categoryId?: string
+  subCategoryId?: string
   group?: string
   subGroup?: string
   imagePaths?: string[]
@@ -39,11 +53,13 @@ interface Product {
 }
 
 interface QuotationItem {
+  key: string
   productId: string
   quantity: number
   price: number
   productImage?: string
   productImages?: string[]
+  source: "catalog" | "manual"
 }
 
 interface QuotationFormProps {
@@ -53,6 +69,38 @@ interface QuotationFormProps {
 function productMainImage(product: Product) {
   if (product.imagePaths && product.imagePaths.length > 0) return product.imagePaths[0]
   return product.imagePath || ""
+}
+
+function newItemKey() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID()
+  return `line-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+function emptyItem(): QuotationItem {
+  return { key: newItemKey(), productId: "", quantity: 1, price: 0, productImage: "", productImages: [], source: "manual" }
+}
+
+function itemFromProduct(product: Product, source: "catalog" | "manual" = "catalog"): QuotationItem {
+  const images = collectProductImages(product)
+  return {
+    key: newItemKey(),
+    productId: asId(product._id),
+    quantity: 1,
+    price: Number(product.price) || 0,
+    productImage: images[0] || "",
+    productImages: images,
+    source,
+  }
+}
+
+function normalizeProduct(product: Product): Product {
+  return {
+    ...product,
+    _id: asId(product._id),
+    departmentId: asId(product.departmentId) || product.departmentId,
+    categoryId: asId(product.categoryId) || product.categoryId,
+    subCategoryId: asId(product.subCategoryId) || product.subCategoryId,
+  }
 }
 
 export default function QuotationForm({ userId }: QuotationFormProps) {
@@ -67,21 +115,29 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
   const [loading, setLoading] = useState(false)
   const [productsLoading, setProductsLoading] = useState(true)
   const [searchOpen, setSearchOpen] = useState<number | null>(null)
+  const [departmentIds, setDepartmentIds] = useState<string[]>([])
+  const [categoryIds, setCategoryIds] = useState<string[]>([])
+  const [subCategoryIds, setSubCategoryIds] = useState<string[]>([])
+  const [catalogEpoch, setCatalogEpoch] = useState(0)
+  const skippedProductIds = useRef(new Set<string>())
+  const [itemQuery, setItemQuery] = useState("")
   const router = useRouter()
   const { toast } = useToast()
   const isMobile = useIsMobile()
+  const { tree, loading: taxonomyLoading } = useTaxonomy()
 
   useEffect(() => {
-    fetchProducts()
+    void fetchProducts()
   }, [])
 
-  const fetchProducts = async () => {
+  async function fetchProducts() {
     try {
       setProductsLoading(true)
       const response = await fetch("/api/products")
       if (response.ok) {
         const data = await response.json()
-        setProducts(data)
+        const list = Array.isArray(data) ? data : []
+        setProducts(list.map((product: Product) => normalizeProduct(product)))
       }
     } catch {
       toast({
@@ -114,41 +170,125 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
   }
 
   const addItem = () => {
-    setItems([...items, { productId: "", quantity: 1, price: 0, productImage: "", productImages: [] }])
+    setItems((current) => [...current, emptyItem()])
+  }
+
+  const skipCatalogProducts = (productIds: string[]) => {
+    let changed = false
+    for (const id of productIds) {
+      if (!id || skippedProductIds.current.has(id)) continue
+      skippedProductIds.current.add(id)
+      changed = true
+    }
+    if (changed) setCatalogEpoch((value) => value + 1)
   }
 
   const removeItem = (index: number) => {
-    setItems(items.filter((_, i) => i !== index))
+    const item = items[index]
+    if (item?.source === "catalog" && item.productId) skipCatalogProducts([item.productId])
+    setItems((current) => current.filter((_, i) => i !== index))
+  }
+
+  const removeIndexes = (indexes: number[]) => {
+    const drop = new Set(indexes)
+    skipCatalogProducts(indexes.filter((index) => items[index]?.source === "catalog").map((index) => items[index].productId))
+    setItems((current) => current.filter((_, i) => !drop.has(i)))
   }
 
   const updateItem = (index: number, field: keyof QuotationItem, value: string | number) => {
-    const updatedItems = [...items]
-    updatedItems[index] = { ...updatedItems[index], [field]: value }
+    setItems((current) => {
+      const updatedItems = [...current]
+      updatedItems[index] = { ...updatedItems[index], [field]: value }
 
-    if (field === "productId") {
-      const product = products.find((p) => p._id === value)
-      if (product) {
-        const images = collectProductImages(product)
-        updatedItems[index].price = product.price
-        updatedItems[index].productImage = images[0] || ""
-        updatedItems[index].productImages = images
+      if (field === "productId") {
+        const product = products.find((p) => p._id === value)
+        if (product) {
+          const images = collectProductImages(product)
+          updatedItems[index].price = product.price
+          updatedItems[index].productImage = images[0] || ""
+          updatedItems[index].productImages = images
+        }
       }
-    }
 
-    setItems(updatedItems)
+      return updatedItems
+    })
   }
 
   const updateItemImages = (index: number, images: string[]) => {
-    const updatedItems = [...items]
-    updatedItems[index] = {
-      ...updatedItems[index],
-      productImages: images,
-      productImage: images[0] || "",
-    }
-    setItems(updatedItems)
+    setItems((current) => {
+      const updatedItems = [...current]
+      updatedItems[index] = {
+        ...updatedItems[index],
+        productImages: images,
+        productImage: images[0] || "",
+      }
+      return updatedItems
+    })
   }
 
+  const matchedCatalogProducts = useMemo(
+    () => productsMatchingNodes(products, [...departmentIds, ...categoryIds, ...subCategoryIds], tree),
+    [products, departmentIds, categoryIds, subCategoryIds, tree],
+  )
+
+  useEffect(() => {
+    const matchedIds = new Set(matchedCatalogProducts.map((product) => asId(product._id)).filter(Boolean))
+    for (const id of Array.from(skippedProductIds.current)) {
+      if (!matchedIds.has(id)) skippedProductIds.current.delete(id)
+    }
+    const skipped = skippedProductIds.current
+
+    setItems((current) => {
+      const merged = mergeCatalogLineItems(current, matchedCatalogProducts, skipped, (product) =>
+        itemFromProduct(product, "catalog"),
+      )
+      const catalogItems = merged.filter((item) => item.source === "catalog")
+      const manual = merged.filter((item) => item.source !== "catalog")
+      catalogItems.sort((a, b) => {
+        const productA = products.find((product) => product._id === a.productId)
+        const productB = products.find((product) => product._id === b.productId)
+        const labelA = formatClassification(classifyProduct(productA || {}))
+        const labelB = formatClassification(classifyProduct(productB || {}))
+        if (labelA !== labelB) return labelA.localeCompare(labelB)
+        return (productA?.name || "").localeCompare(productB?.name || "")
+      })
+      const next = [...catalogItems, ...manual]
+      if (
+        next.length === current.length &&
+        next.every((item, index) => item.key === current[index]?.key && item.productId === current[index]?.productId)
+      ) {
+        return current
+      }
+      return next
+    })
+  }, [matchedCatalogProducts, products, catalogEpoch])
+
   const calculateTotal = () => items.reduce((total, item) => total + item.quantity * item.price, 0)
+
+  const filledCount = items.filter((item) => item.productId).length
+  const compact = filledCount >= QUOTE_COMPACT_THRESHOLD
+  const hasClassificationSelection = departmentIds.length + categoryIds.length + subCategoryIds.length > 0
+
+  const lineGroups = useMemo(() => {
+    const decorated = items.map((item) => {
+      const product = products.find((entry) => entry._id === item.productId)
+      return {
+        ...classificationFromProduct(product),
+        productName: product?.name,
+        productId: product?.productId,
+      }
+    })
+    const visibleIndexes = decorated
+      .map((row, index) => ({ row, index }))
+      .filter(({ row, index }) => {
+        if (!itemQuery.trim()) return true
+        if (!items[index].productId) return true
+        return quotationItemMatchesQuery(row, itemQuery)
+      })
+      .map(({ index }) => index)
+    const visibleRows = visibleIndexes.map((index) => decorated[index])
+    return groupQuoteItems(visibleRows, visibleIndexes)
+  }, [items, products, itemQuery])
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault()
@@ -192,7 +332,7 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
           customerName: customerData.name,
           customerPhone: customerData.phone,
           customerAddress: customerData.address,
-          items,
+          items: items.map(({ key: _key, source: _source, ...item }) => item),
           totalAmount: calculateTotal(),
           showPrices,
         }),
@@ -353,6 +493,127 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
     )
   }
 
+  const qtyControls = (index: number, item: QuotationItem) => (
+    <div className="flex items-center gap-1">
+      <Button
+        type="button"
+        variant="outline"
+        size="icon"
+        className="h-9 w-9"
+        onClick={() => updateItem(index, "quantity", Math.max(1, item.quantity - 1))}
+        aria-label="Decrease quantity"
+      >
+        <Minus className="h-3.5 w-3.5" />
+      </Button>
+      <Input
+        type="number"
+        min="1"
+        value={item.quantity}
+        onChange={(e) => updateItem(index, "quantity", Number.parseInt(e.target.value) || 1)}
+        className="h-9 w-14 text-center tabular-nums"
+      />
+      <Button
+        type="button"
+        variant="outline"
+        size="icon"
+        className="h-9 w-9"
+        onClick={() => updateItem(index, "quantity", item.quantity + 1)}
+        aria-label="Increase quantity"
+      >
+        <Plus className="h-3.5 w-3.5" />
+      </Button>
+    </div>
+  )
+
+  const renderLine = (index: number) => {
+    const item = items[index]
+    const selectedProduct = products.find((p) => p._id === item.productId)
+    if (!selectedProduct) {
+      return (
+        <div key={item.key} className="border-b border-border py-3 last:border-0">
+          <div className="flex items-start gap-3">
+            <div className="min-w-0 flex-1">
+              <ProductSearchCombobox
+                index={index}
+                value={item.productId}
+                onSelect={(value) => updateItem(index, "productId", value)}
+              />
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 text-destructive hover:text-destructive"
+              onClick={() => removeItem(index)}
+              aria-label="Remove item"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )
+    }
+
+    return (
+        <div key={item.key} className={cn("border-b border-border last:border-0", compact ? "py-2" : "py-2.5")}>
+        <div className="flex items-center gap-3">
+          <QuotationItemImagePicker
+            images={collectProductImages(selectedProduct)}
+            selected={item.productImages || []}
+            alt={selectedProduct.name}
+            onChange={(next) => updateItemImages(index, next)}
+          />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium">{selectedProduct.name}</p>
+            <p className="truncate font-mono text-xs text-muted-foreground">#{selectedProduct.productId}</p>
+          </div>
+          <div className="hidden shrink-0 md:block">{qtyControls(index, item)}</div>
+          <Input
+            type="number"
+            step="0.01"
+            value={item.price}
+            onChange={(e) => updateItem(index, "price", Number.parseFloat(e.target.value) || 0)}
+            className="hidden h-9 w-24 tabular-nums md:block"
+            aria-label="Unit price"
+          />
+          <span className="hidden w-24 text-right text-sm font-medium tabular-nums md:inline">
+            PKR {(item.quantity * item.price).toLocaleString()}
+          </span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 text-destructive hover:text-destructive"
+            onClick={() => removeItem(index)}
+            aria-label="Remove item"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="mt-2 grid grid-cols-2 gap-2 md:hidden">
+          <div className="space-y-1">
+            <Label className="text-xs">Qty</Label>
+            {qtyControls(index, item)}
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Unit price</Label>
+            <Input
+              type="number"
+              step="0.01"
+              value={item.price}
+              onChange={(e) => updateItem(index, "price", Number.parseFloat(e.target.value) || 0)}
+              className="h-9 tabular-nums"
+            />
+          </div>
+          <div className="col-span-2 flex justify-between text-sm">
+            <span className="text-muted-foreground">Line total</span>
+            <span className="font-medium tabular-nums">PKR {(item.quantity * item.price).toLocaleString()}</span>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   const summary = (
     <div className="space-y-4">
       <dl className="space-y-2 text-sm">
@@ -366,11 +627,13 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
         </div>
         <div className="flex justify-between gap-3">
           <dt className="text-muted-foreground">Items</dt>
-          <dd className="tabular-nums font-medium">{items.filter((i) => i.productId).length}</dd>
+          <dd className="tabular-nums font-medium">{filledCount}</dd>
         </div>
         <div className="flex justify-between gap-3 border-t border-border pt-3">
           <dt className="font-semibold text-foreground">Total</dt>
-          <dd className="text-base font-bold tabular-nums">PKR {calculateTotal().toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</dd>
+          <dd className="text-base font-bold tabular-nums">
+            PKR {calculateTotal().toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+          </dd>
         </div>
         <div className="flex justify-between gap-3">
           <dt className="text-muted-foreground">Customer copy</dt>
@@ -482,204 +745,85 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
               </Button>
             </PanelHeader>
             <PanelBody className="space-y-3">
-              {items.length > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Tap a product image to choose photos for the customer copy. All images are selected by default.
+              <QuotationClassificationSelects
+                tree={tree}
+                loading={taxonomyLoading}
+                departmentIds={departmentIds}
+                categoryIds={categoryIds}
+                subCategoryIds={subCategoryIds}
+                onDepartmentChange={setDepartmentIds}
+                onCategoryChange={setCategoryIds}
+                onSubCategoryChange={setSubCategoryIds}
+              />
+
+              {items.length === 0 && (
+                <p className="py-4 text-center text-sm text-muted-foreground">
+                  {hasClassificationSelection
+                    ? productsLoading
+                      ? "Loading products…"
+                      : "No in-stock products for that classification."
+                    : "Select a department, category, or subcategory to load products, or add one item."}
                 </p>
               )}
-              {items.length === 0 && (
-                <EmptyState
-                  icon={FileText}
-                  title="No items yet"
-                  description="Add a product to build this quotation."
-                  actionLabel="Add item"
-                  onAction={addItem}
-                  className="py-8"
+
+              {filledCount >= QUOTE_FIND_THRESHOLD && (
+                <Input
+                  value={itemQuery}
+                  onChange={(e) => setItemQuery(e.target.value)}
+                  placeholder="Find item on this quote"
+                  className="h-10"
                 />
               )}
 
-              {/* Desktop editable table */}
               {items.length > 0 && (
-                <div className="hidden overflow-x-auto md:block">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
-                        <th className="pb-2 pr-3 font-semibold">Product</th>
-                        <th className="pb-2 pr-3 font-semibold">Qty</th>
-                        <th className="pb-2 pr-3 font-semibold">Unit price</th>
-                        <th className="pb-2 pr-3 font-semibold">Line total</th>
-                        <th className="pb-2 font-semibold"><span className="sr-only">Remove</span></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {items.map((item, index) => {
-                        const selectedProduct = products.find((p) => p._id === item.productId)
-                        return (
-                          <tr key={index} className="border-b border-border last:border-0">
-                            <td className="py-3 pr-3 align-middle">
-                              <div className="flex min-w-[240px] items-center gap-3">
-                                <QuotationItemImagePicker
-                                  images={selectedProduct ? collectProductImages(selectedProduct) : []}
-                                  selected={item.productImages || []}
-                                  alt={selectedProduct?.name || "Product"}
-                                  onChange={(next) => updateItemImages(index, next)}
-                                />
-                                <div className="min-w-0 flex-1">
-                                  <ProductSearchCombobox
-                                    index={index}
-                                    value={item.productId}
-                                    onSelect={(value) => updateItem(index, "productId", value)}
-                                  />
-                                </div>
-                              </div>
-                            </td>
-                            <td className="py-3 pr-3 align-middle">
-                              <div className="flex items-center gap-1">
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="icon"
-                                  className="h-9 w-9"
-                                  onClick={() =>
-                                    updateItem(index, "quantity", Math.max(1, item.quantity - 1))
-                                  }
-                                  aria-label="Decrease quantity"
-                                >
-                                  <Minus className="h-3.5 w-3.5" />
-                                </Button>
-                                <Input
-                                  type="number"
-                                  min="1"
-                                  value={item.quantity}
-                                  onChange={(e) =>
-                                    updateItem(index, "quantity", Number.parseInt(e.target.value) || 1)
-                                  }
-                                  className="h-9 w-16 text-center tabular-nums"
-                                />
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="icon"
-                                  className="h-9 w-9"
-                                  onClick={() => updateItem(index, "quantity", item.quantity + 1)}
-                                  aria-label="Increase quantity"
-                                >
-                                  <Plus className="h-3.5 w-3.5" />
-                                </Button>
-                              </div>
-                            </td>
-                            <td className="py-3 pr-3 align-middle">
-                              <Input
-                                type="number"
-                                step="0.01"
-                                value={item.price}
-                                onChange={(e) =>
-                                  updateItem(index, "price", Number.parseFloat(e.target.value) || 0)
-                                }
-                                className="h-9 w-28 tabular-nums"
-                              />
-                            </td>
-                            <td className="py-3 pr-3 align-middle">
-                              <span className="font-medium tabular-nums">
-                                PKR {(item.quantity * item.price).toLocaleString()}
-                              </span>
-                            </td>
-                            <td className="py-3 align-middle">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-9 w-9 text-destructive hover:text-destructive"
-                                onClick={() => removeItem(index)}
-                                aria-label="Remove item"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
+                <div className="hidden items-center gap-3 border-b border-border pb-2 text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground md:flex">
+                  <span className="flex-1">Product</span>
+                  <span className="w-[132px]">Qty</span>
+                  <span className="w-24">Unit</span>
+                  <span className="w-24 text-right">Amount</span>
+                  <span className="w-9" />
                 </div>
               )}
 
-              {/* Mobile editable cards */}
-              <div className="space-y-3 md:hidden">
-                {items.map((item, index) => {
-                  const selectedProduct = products.find((p) => p._id === item.productId)
-                  return (
-                    <div key={index} className="rounded-lg border border-border p-3 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-muted-foreground">Item {index + 1}</span>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-9 w-9 text-destructive"
-                          onClick={() => removeItem(index)}
-                          aria-label="Remove item"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <ProductSearchCombobox
-                        index={index}
-                        value={item.productId}
-                        onSelect={(value) => updateItem(index, "productId", value)}
-                      />
-                      {selectedProduct && (
-                        <div className="flex items-center gap-3 rounded-md border border-border bg-muted/40 p-2">
-                          <QuotationItemImagePicker
-                            images={collectProductImages(selectedProduct)}
-                            selected={item.productImages || []}
-                            alt={selectedProduct.name}
-                            onChange={(next) => updateItemImages(index, next)}
-                          />
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium">{selectedProduct.name}</p>
-                            <p className="text-xs text-muted-foreground">#{selectedProduct.productId}</p>
-                          </div>
-                        </div>
-                      )}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Quantity</Label>
-                          <Input
-                            type="number"
-                            min="1"
-                            value={item.quantity}
-                            onChange={(e) =>
-                              updateItem(index, "quantity", Number.parseInt(e.target.value) || 1)
-                            }
-                            className="h-10"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Unit price (PKR)</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={item.price}
-                            onChange={(e) =>
-                              updateItem(index, "price", Number.parseFloat(e.target.value) || 0)
-                            }
-                            className="h-10"
-                          />
-                        </div>
-                      </div>
-                      {item.productId && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Line total</span>
-                          <span className="font-semibold tabular-nums">
-                            PKR {(item.quantity * item.price).toLocaleString()}
+              {lineGroups.map((group) => {
+                const groupTotal = group.indexes.reduce(
+                  (sum, index) => sum + items[index].quantity * items[index].price,
+                  0,
+                )
+                const showGroupChrome = lineGroups.length > 1 && group.indexes.some((index) => items[index].productId)
+                return (
+                  <div key={group.key}>
+                    {showGroupChrome && (
+                      <div className="flex items-center justify-between gap-3 bg-muted/50 px-2 py-1.5">
+                        <p className="min-w-0 truncate text-xs font-semibold">
+                          {group.label}
+                          <span className="ml-2 font-normal text-muted-foreground tabular-nums">
+                            {group.indexes.length}
                           </span>
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium tabular-nums">PKR {groupTotal.toLocaleString()}</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => removeIndexes(group.indexes)}
+                            aria-label={`Remove ${group.label}`}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
+                      </div>
+                    )}
+                    {group.indexes.map((index) => renderLine(index))}
+                  </div>
+                )
+              })}
+
+              {items.length > 0 && itemQuery.trim() && lineGroups.every((group) => group.indexes.length === 0) && (
+                <p className="py-6 text-center text-sm text-muted-foreground">No items match that search.</p>
+              )}
             </PanelBody>
           </Panel>
 
@@ -703,11 +847,10 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
         </aside>
       </div>
 
-      {/* Mobile sticky total / action */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur lg:hidden supports-[padding:max(0px)]:pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center justify-between gap-3 px-4 py-3">
           <div>
-            <p className="text-xs text-muted-foreground">Total</p>
+            <p className="text-xs text-muted-foreground">{filledCount} items</p>
             <p className="text-base font-bold tabular-nums">PKR {calculateTotal().toLocaleString()}</p>
           </div>
           <Button

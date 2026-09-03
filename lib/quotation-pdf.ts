@@ -11,6 +11,7 @@ import {
   validUntilDate,
 } from "@/lib/company"
 import { quotationStatusLabel } from "@/lib/quotation"
+import { QUOTE_PDF_PHOTO_LIMIT, groupQuoteItems } from "@/lib/quotation-catalog"
 
 type PdfItem = {
   productId: string
@@ -18,6 +19,9 @@ type PdfItem = {
   price: number
   productName?: string
   productImage?: string
+  department?: string
+  category?: string
+  subCategory?: string
 }
 
 type PdfQuotation = {
@@ -196,11 +200,15 @@ export async function generateQuotationPdf(quotation: PdfQuotation, items: PdfIt
     const computed = items.reduce((sum, item) => sum + item.quantity * item.price, 0)
     const grandTotal = quotation.totalAmount || computed
 
+    const loadPhotos = items.length <= QUOTE_PDF_PHOTO_LIMIT
+    const groups = groupQuoteItems(items)
+    const showGroups = groups.length > 1
+    const orderedItems = groups.flatMap((group) => group.items)
     const [logo, ...itemPhotos] = await Promise.all([
       prepareCompanyLogo(),
-      ...items.map((item) => loadItemImage(item.productImage)),
+      ...(loadPhotos ? orderedItems.map((item) => loadItemImage(item.productImage)) : []),
     ])
-    const hasPhotos = itemPhotos.some(Boolean)
+    const hasPhotos = loadPhotos && itemPhotos.some(Boolean)
 
     const drawChrome = (page: number, pageCount: number) => {
       doc.setFillColor(...GOLD)
@@ -346,16 +354,49 @@ export async function generateQuotationPdf(quotation: PdfQuotation, items: PdfIt
         ? [["Item", "Qty", "Unit", "Amount"]]
         : [["Item", "Qty"]]
 
-    const body = items.map((item) => {
-      const itemCell = `${item.productName || "Product"}\n#${item.productId}`
-      const qty = String(item.quantity)
-      if (hasPhotos && showPrices) {
-        return ["", itemCell, qty, formatAmount(item.price), formatAmount(item.quantity * item.price)]
+    const columnCount = (hasPhotos ? 1 : 0) + 1 + 1 + (showPrices ? 2 : 0)
+
+    type BodyCell = string | { content: string; colSpan: number; styles: Record<string, unknown> }
+    const body: BodyCell[][] = []
+    const bodyKind: Array<"group" | "item"> = []
+
+    for (const group of groups) {
+      if (showGroups) {
+        const groupTotal = group.items.reduce((sum, item) => sum + item.quantity * item.price, 0)
+        const groupLabel = showPrices
+          ? `${group.label}   ${group.items.length}    ${formatAmount(groupTotal)}`
+          : `${group.label}   ${group.items.length}`
+        body.push([
+          {
+            content: groupLabel,
+            colSpan: columnCount,
+            styles: {
+              fillColor: SURFACE,
+              textColor: INK,
+              fontStyle: "bold",
+              fontSize: 7.5,
+              minCellHeight: 7,
+              cellPadding: { top: 2.2, bottom: 2.2, left: 2.2, right: 2.2 },
+            },
+          },
+        ])
+        bodyKind.push("group")
       }
-      if (hasPhotos) return ["", itemCell, qty]
-      if (showPrices) return [itemCell, qty, formatAmount(item.price), formatAmount(item.quantity * item.price)]
-      return [itemCell, qty]
-    })
+      for (const item of group.items) {
+        const itemCell = `${item.productName || "Product"}\n#${item.productId}`
+        const qty = String(item.quantity)
+        if (hasPhotos && showPrices) {
+          body.push(["", itemCell, qty, formatAmount(item.price), formatAmount(item.quantity * item.price)])
+        } else if (hasPhotos) {
+          body.push(["", itemCell, qty])
+        } else if (showPrices) {
+          body.push([itemCell, qty, formatAmount(item.price), formatAmount(item.quantity * item.price)])
+        } else {
+          body.push([itemCell, qty])
+        }
+        bodyKind.push("item")
+      }
+    }
 
     const photoIndex = hasPhotos ? 0 : -1
     const amountIndex = showPrices ? (hasPhotos ? 4 : 3) : -1
@@ -376,7 +417,7 @@ export async function generateQuotationPdf(quotation: PdfQuotation, items: PdfIt
         cellPadding: { top: 3.2, bottom: 3.2, left: 2.2, right: 2.2 },
         lineColor: LINE,
         lineWidth: 0.2,
-        minCellHeight: hasPhotos ? 16 : 9,
+        minCellHeight: hasPhotos ? 16 : items.length >= QUOTE_PDF_PHOTO_LIMIT ? 7 : 9,
         overflow: "linebreak",
         valign: "middle",
       },
@@ -402,7 +443,9 @@ export async function generateQuotationPdf(quotation: PdfQuotation, items: PdfIt
       },
       didDrawCell: (data) => {
         if (data.section !== "body" || data.column.index !== photoIndex) return
-        const photo = itemPhotos[data.row.index]
+        if (bodyKind[data.row.index] !== "item") return
+        const photoIndexInItems = bodyKind.slice(0, data.row.index).filter((kind) => kind === "item").length
+        const photo = itemPhotos[photoIndexInItems]
         if (!photo) return
         const pad = 1.6
         const size = Math.min(data.cell.width, data.cell.height) - pad * 2

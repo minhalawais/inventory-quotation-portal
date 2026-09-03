@@ -1,9 +1,13 @@
+"use client"
+
 import type { ReactNode } from "react"
+import { Fragment, useMemo, useState } from "react"
 import { Minus, Plus } from "lucide-react"
 
 import { BrandMark } from "@/components/brand-mark"
 import { QuotationProductImage } from "@/components/quotations/quotation-product-image"
 import { StatusBadge } from "@/components/shared/status-badge"
+import { ProductThumb } from "@/components/shared/product-thumb"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -17,6 +21,12 @@ import {
   validUntilDate,
 } from "@/lib/company"
 import { quotationStatusLabel, quotationStatusTone } from "@/lib/quotation"
+import {
+  QUOTE_COMPACT_THRESHOLD,
+  QUOTE_FIND_THRESHOLD,
+  groupQuoteItems,
+  quotationItemMatchesQuery,
+} from "@/lib/quotation-catalog"
 import { cn } from "@/lib/utils"
 
 export interface QuotationDocumentItem {
@@ -27,6 +37,9 @@ export interface QuotationDocumentItem {
   productImage?: string | null
   productImages?: string[]
   sentQuantity?: number
+  department?: string
+  category?: string
+  subCategory?: string
 }
 
 export interface QuotationDocumentRider {
@@ -138,6 +151,29 @@ function ContactLink({
   )
 }
 
+function ItemPhoto({
+  images,
+  alt,
+  compact,
+  staticThumb,
+}: {
+  images: string[]
+  alt: string
+  compact: boolean
+  staticThumb: boolean
+}) {
+  if (staticThumb) {
+    return <ProductThumb src={images[0] || null} alt={alt} className={compact ? "h-10 w-10" : "h-12 w-12"} />
+  }
+  return (
+    <QuotationProductImage
+      images={images}
+      alt={alt}
+      className={compact ? "h-10 w-10" : undefined}
+    />
+  )
+}
+
 /** Shared KK Sports quotation document for modal, public page, and print. */
 export function QuotationDocument({
   quotation,
@@ -154,12 +190,27 @@ export function QuotationDocument({
   const riderName = quotation.rider?.name ? displayPersonName(quotation.rider.name) : ""
   const customerTel = telHref(quotation.customerPhone)
   const riderTel = quotation.rider?.phone ? telHref(quotation.rider.phone) : ""
+  const [itemQuery, setItemQuery] = useState("")
   const displayItems = quotation.items.map((item, index) => {
     const quantity = quantityEditor ? quantityEditor.quantities[index] ?? item.quantity : item.quantity
     return { ...item, quantity, line: quantity * item.price }
   })
   const computedTotal = displayItems.reduce((sum, item) => sum + item.line, 0)
   const total = quantityEditor ? computedTotal : quotation.totalAmount || computedTotal
+  const compact = displayItems.length >= QUOTE_COMPACT_THRESHOLD
+  const useStaticThumbs = compact || displayItems.length >= QUOTE_FIND_THRESHOLD
+  const groups = useMemo(() => {
+    const visibleIndexes = displayItems
+      .map((item, index) => ({ item, index }))
+      .filter(({ item }) => quotationItemMatchesQuery(item, itemQuery))
+      .map(({ index }) => index)
+    return groupQuoteItems(
+      visibleIndexes.map((index) => displayItems[index]),
+      visibleIndexes,
+    )
+  }, [displayItems, itemQuery])
+  const showFind = displayItems.length >= QUOTE_FIND_THRESHOLD
+  const showGroups = groups.length > 1
 
   return (
     <article
@@ -225,12 +276,23 @@ export function QuotationDocument({
         </section>
       </div>
 
+      {showFind && (
+        <div className="border-b border-border px-5 py-3 print:hidden sm:px-6">
+          <Input
+            value={itemQuery}
+            onChange={(event) => setItemQuery(event.target.value)}
+            placeholder={`Find in ${displayItems.length} items`}
+            className="h-10"
+          />
+        </div>
+      )}
+
       <div className="hidden overflow-x-auto sm:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/50 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
               {showImages && (
-                <th className="w-[88px] px-5 py-2.5 sm:px-6">
+                <th className={cn("px-5 py-2.5 sm:px-6", compact ? "w-[56px]" : "w-[88px]")}>
                   <span className="sr-only">Photo</span>
                 </th>
               )}
@@ -241,82 +303,138 @@ export function QuotationDocument({
             </tr>
           </thead>
           <tbody>
-            {displayItems.map((item, index) => {
-              const images = itemImages(item)
+            {groups.map((group) => {
+              const groupTotal = group.indexes.reduce((sum, index) => sum + displayItems[index].line, 0)
+              const colSpan =
+                2 + (showImages ? 1 : 0) + (showPrices ? 2 : 0)
               return (
-                <tr key={index} className="border-b border-border last:border-0">
-                  {showImages && (
-                    <td className="px-5 py-3 sm:px-6 print:hidden">
-                      <QuotationProductImage images={images} alt={item.productName || "Product"} />
-                    </td>
+                <Fragment key={group.key}>
+                  {showGroups && (
+                    <tr className="border-b border-border bg-muted/40">
+                      <td colSpan={colSpan} className="px-5 py-2 sm:px-6">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-xs font-semibold">
+                            {group.label}
+                            <span className="ml-2 font-normal text-muted-foreground tabular-nums">
+                              {group.indexes.length}
+                            </span>
+                          </p>
+                          {showPrices && (
+                            <p className="text-xs font-medium tabular-nums">{formatAmount(groupTotal)}</p>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
                   )}
-                  <td className="px-5 py-3 sm:px-6">
-                    <p className="font-medium break-words">{item.productName || "Product"}</p>
-                    <p className="mt-0.5 font-mono text-xs text-muted-foreground">#{item.productId}</p>
-                  </td>
-                  <td className="px-3 py-3 text-right">
-                    {quantityEditor ? (
-                      <>
-                        <span className="hidden tabular-nums print:inline">{item.quantity}</span>
-                        <QtyStepper
-                          value={item.quantity}
-                          onChange={(quantity) => quantityEditor.onChange(index, quantity)}
-                        />
-                      </>
-                    ) : (
-                      <span className="tabular-nums">{item.quantity}</span>
-                    )}
-                    <PreviousQty sentQuantity={item.sentQuantity} quantity={item.quantity} />
-                  </td>
-                  {showPrices && (
-                    <td className="px-3 py-3 text-right tabular-nums">{formatAmount(item.price)}</td>
-                  )}
-                  {showPrices && (
-                    <td className="px-5 py-3 text-right font-medium tabular-nums sm:px-6">{formatAmount(item.line)}</td>
-                  )}
-                </tr>
+                  {group.indexes.map((index) => {
+                    const item = displayItems[index]
+                    const images = itemImages(item)
+                    const pad = compact ? "py-2" : "py-3"
+                    return (
+                      <tr key={`${group.key}-${index}`} className="border-b border-border last:border-0">
+                        {showImages && (
+                          <td className={cn("px-5 sm:px-6 print:hidden", pad)}>
+                            <ItemPhoto
+                              images={images}
+                              alt={item.productName || "Product"}
+                              compact={compact}
+                              staticThumb={useStaticThumbs}
+                            />
+                          </td>
+                        )}
+                        <td className={cn("px-5 sm:px-6", pad)}>
+                          <p className="font-medium break-words">{item.productName || "Product"}</p>
+                          <p className="mt-0.5 font-mono text-xs text-muted-foreground">#{item.productId}</p>
+                        </td>
+                        <td className={cn("px-3 text-right", pad)}>
+                          {quantityEditor ? (
+                            <>
+                              <span className="hidden tabular-nums print:inline">{item.quantity}</span>
+                              <QtyStepper
+                                value={item.quantity}
+                                onChange={(quantity) => quantityEditor.onChange(index, quantity)}
+                              />
+                            </>
+                          ) : (
+                            <span className="tabular-nums">{item.quantity}</span>
+                          )}
+                          <PreviousQty sentQuantity={item.sentQuantity} quantity={item.quantity} />
+                        </td>
+                        {showPrices && (
+                          <td className={cn("px-3 text-right tabular-nums", pad)}>{formatAmount(item.price)}</td>
+                        )}
+                        {showPrices && (
+                          <td className={cn("px-5 text-right font-medium tabular-nums sm:px-6", pad)}>
+                            {formatAmount(item.line)}
+                          </td>
+                        )}
+                      </tr>
+                    )
+                  })}
+                </Fragment>
               )
             })}
           </tbody>
         </table>
+        {showFind && itemQuery.trim() && groups.every((group) => group.indexes.length === 0) && (
+          <p className="px-5 py-6 text-center text-sm text-muted-foreground print:hidden">No items match that search.</p>
+        )}
       </div>
 
       <div className="space-y-3 border-b border-border px-4 py-4 sm:hidden">
-        {displayItems.map((item, index) => {
-          const images = itemImages(item)
+        {groups.map((group) => {
+          const groupTotal = group.indexes.reduce((sum, index) => sum + displayItems[index].line, 0)
           return (
-            <div key={index} className="flex gap-3 rounded-md border border-border p-3">
-              {showImages && (
-                <QuotationProductImage
-                  images={images}
-                  alt={item.productName || "Product"}
-                  className="h-[72px] w-[72px]"
-                />
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium break-words">{item.productName || "Product"}</p>
-                <p className="font-mono text-xs text-muted-foreground">#{item.productId}</p>
-                {quantityEditor ? (
-                  <div className="mt-2">
-                    <QtyStepper
-                      value={item.quantity}
-                      onChange={(quantity) => quantityEditor.onChange(index, quantity)}
-                    />
-                    <PreviousQty sentQuantity={item.sentQuantity} quantity={item.quantity} />
-                  </div>
-                ) : (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Qty {item.quantity}
-                    {item.sentQuantity != null && item.sentQuantity !== item.quantity
-                      ? ` · was ${item.sentQuantity}`
-                      : ""}
-                    {showPrices ? ` × ${formatAmount(item.price)}` : ""}
+            <div key={group.key} className="space-y-2">
+              {showGroups && (
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-semibold">
+                    {group.label}
+                    <span className="ml-2 font-normal text-muted-foreground tabular-nums">{group.indexes.length}</span>
                   </p>
-                )}
-                {showPrices && (
-                  <p className="mt-1 text-sm font-semibold tabular-nums">{formatAmount(item.line)}</p>
-                )}
-              </div>
+                  {showPrices && <p className="text-xs font-medium tabular-nums">{formatAmount(groupTotal)}</p>}
+                </div>
+              )}
+              {group.indexes.map((index) => {
+                const item = displayItems[index]
+                const images = itemImages(item)
+                return (
+                  <div key={`${group.key}-${index}`} className="flex gap-3 rounded-md border border-border p-3">
+                    {showImages && (
+                      <ItemPhoto
+                        images={images}
+                        alt={item.productName || "Product"}
+                        compact={compact}
+                        staticThumb={useStaticThumbs}
+                      />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium break-words">{item.productName || "Product"}</p>
+                      <p className="font-mono text-xs text-muted-foreground">#{item.productId}</p>
+                      {quantityEditor ? (
+                        <div className="mt-2">
+                          <QtyStepper
+                            value={item.quantity}
+                            onChange={(quantity) => quantityEditor.onChange(index, quantity)}
+                          />
+                          <PreviousQty sentQuantity={item.sentQuantity} quantity={item.quantity} />
+                        </div>
+                      ) : (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Qty {item.quantity}
+                          {item.sentQuantity != null && item.sentQuantity !== item.quantity
+                            ? ` · was ${item.sentQuantity}`
+                            : ""}
+                          {showPrices ? ` × ${formatAmount(item.price)}` : ""}
+                        </p>
+                      )}
+                      {showPrices && (
+                        <p className="mt-1 text-sm font-semibold tabular-nums">{formatAmount(item.line)}</p>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )
         })}

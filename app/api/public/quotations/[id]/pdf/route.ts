@@ -4,6 +4,7 @@ import { ObjectId } from "mongodb"
 import clientPromise from "@/lib/mongodb"
 import { quotationShowsPrices, resolveStoredProductImages } from "@/lib/quotation"
 import { generateQuotationPdf } from "@/lib/quotation-pdf"
+import { classificationFromProduct } from "@/lib/quotation-catalog"
 import { ensureQuotationNumber, quotationPdfFilename } from "@/lib/quotation-number"
 
 export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
@@ -46,6 +47,7 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
           quantity: item.quantity,
           price: showPrices ? item.price : 0,
           productImage: productImages[0] || "",
+          ...classificationFromProduct(product),
         }
       }),
     )

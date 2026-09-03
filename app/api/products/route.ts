@@ -27,7 +27,18 @@ export async function GET(request: NextRequest) {
     // Sort by productId in descending order (assuming higher IDs are newer)
     const result = await products.find(query).sort({ productId: -1 }).toArray()
 
-    return NextResponse.json(result.map((product) => withClassification(product)))
+    return NextResponse.json(
+      result.map((product) => {
+        const classified = withClassification(product)
+        return {
+          ...classified,
+          _id: product._id.toString(),
+          departmentId: product.departmentId ? String(product.departmentId) : classified.departmentId,
+          categoryId: product.categoryId ? String(product.categoryId) : classified.categoryId,
+          subCategoryId: product.subCategoryId ? String(product.subCategoryId) : classified.subCategoryId,
+        }
+      }),
+    )
   } catch (error) {
     console.error("Products API error:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })

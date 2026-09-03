@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth"
 import clientPromise from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 import { quotationShowsPrices, resolveStoredProductImages } from "@/lib/quotation"
+import { classificationFromProduct } from "@/lib/quotation-catalog"
 import { allocateQuotationNo, ensureQuotationNumbers } from "@/lib/quotation-number"
 
 export async function GET(request: NextRequest) {
@@ -51,6 +52,7 @@ export async function GET(request: NextRequest) {
               productImage: productImages[0] || "",
               productImages,
               sentQuantity: item.sentQuantity,
+              ...classificationFromProduct(product),
             }
           }),
         )
