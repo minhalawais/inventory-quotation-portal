@@ -17,11 +17,22 @@ async function setupDatabase() {
     await db.createCollection("products")
     await db.createCollection("quotations")
 
-    // Create indexes
+    // Create indexes (see lib/db-indexes.ts and scripts/ensure-indexes.js)
     await db.collection("users").createIndex({ email: 1 }, { unique: true })
     await db.collection("products").createIndex({ productId: 1 }, { unique: true })
-    await db.collection("quotations").createIndex({ riderId: 1 })
+    await db.collection("products").createIndex({ isOutOfStock: 1, productId: -1 })
+    await db.collection("products").createIndex({ departmentId: 1 }, { sparse: true })
+    await db.collection("products").createIndex({ categoryId: 1 }, { sparse: true })
+    await db.collection("products").createIndex({ subCategoryId: 1 }, { sparse: true })
     await db.collection("quotations").createIndex({ quotationNo: 1 }, { unique: true, sparse: true })
+    await db.collection("quotations").createIndex({ riderId: 1, createdAt: -1 })
+    await db.collection("quotations").createIndex({ createdAt: -1 })
+    await db.collection("quotations").createIndex({ status: 1, createdAt: -1 })
+    await db.collection("product_taxonomy").createIndex({ type: 1, parentId: 1, name: 1 })
+    await db.collection("product_taxonomy").createIndex({ parentId: 1 })
+    await db.collection("product_taxonomy").createIndex({ type: 1, name: 1 })
+    await db.collection("product_taxonomy").createIndex({ name: 1 })
+    await db.collection("activity_logs").createIndex({ timestamp: -1 })
 
     // Create default admin user
     const hashedPassword = await bcrypt.hash("admin123", 12)

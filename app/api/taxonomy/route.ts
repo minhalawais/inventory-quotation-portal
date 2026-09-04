@@ -11,7 +11,6 @@ import {
   seedTaxonomyFromProducts,
   serializeTaxonomyNode,
   taxonomyCollection,
-  upsertKkSportsTaxonomy,
   type TaxonomyDoc,
 } from "@/lib/taxonomy"
 import type { TaxonomyType } from "@/lib/product-classification"
@@ -38,9 +37,8 @@ export async function GET() {
 
     const client = await clientPromise
     const db = client.db("inventory_portal")
+    // One-time migration when taxonomy is empty; catalog seeding lives in scripts/seed-taxonomy.js
     await seedTaxonomyFromProducts(db)
-    await upsertKkSportsTaxonomy(db)
-    await taxonomyCollection(db).createIndex({ type: 1, parentId: 1, name: 1 })
     const tree = await buildTaxonomyTree(db)
 
     return NextResponse.json(tree)

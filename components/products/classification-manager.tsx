@@ -242,17 +242,25 @@ export default function ClassificationManager() {
         {items.length === 0 ? (
           <p className="px-1.5 py-4 text-xs text-muted-foreground">{emptyDescription}</p>
         ) : (
-          items.map((item) => (
+          items.map((item) => {
+            const isSelected = selectedId === item._id
+            return (
             <div
               key={item._id}
               className={cn(
-                "flex h-9 items-center gap-1 rounded-md px-1.5",
-                selectedId === item._id ? "bg-muted" : "hover:bg-muted/60",
+                "flex h-9 items-center gap-1 rounded-md border px-1.5 transition-colors",
+                isSelected
+                  ? "border-primary/35 bg-accent shadow-sm"
+                  : "border-transparent hover:border-border hover:bg-muted/70",
               )}
             >
               <button
                 type="button"
-                className="min-w-0 flex-1 truncate px-1.5 text-left text-sm font-medium"
+                className={cn(
+                  "min-w-0 flex-1 truncate px-1.5 text-left text-sm",
+                  isSelected ? "font-semibold text-foreground" : "font-medium text-foreground/90",
+                )}
+                aria-selected={isSelected}
                 onClick={() => onSelect(item._id)}
               >
                 {item.name}
@@ -278,7 +286,8 @@ export default function ClassificationManager() {
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
             </div>
-          ))
+            )
+          })
         )}
       </div>
     </div>
@@ -326,23 +335,42 @@ export default function ClassificationManager() {
     <>
       <div className="hidden gap-4 lg:grid lg:grid-cols-3">
         <Panel>
-          <PanelHeader className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">Departments</h2>
-            <span className="text-xs tabular-nums text-muted-foreground">{counts.departments}</span>
+          <PanelHeader className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold">Departments</h2>
+              {selectedDepartment && (
+                <p className="truncate text-xs text-muted-foreground">Selected: {selectedDepartment.name}</p>
+              )}
+            </div>
+            <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{counts.departments}</span>
           </PanelHeader>
           <PanelBody>{departmentColumn}</PanelBody>
         </Panel>
         <Panel>
-          <PanelHeader className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">Categories</h2>
-            <span className="text-xs tabular-nums text-muted-foreground">{counts.categories}</span>
+          <PanelHeader className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold">Categories</h2>
+              {selectedDepartment ? (
+                <p className="truncate text-xs text-muted-foreground">Under {selectedDepartment.name}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">Select a department</p>
+              )}
+            </div>
+            <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{counts.categories}</span>
           </PanelHeader>
           <PanelBody>{categoryColumn}</PanelBody>
         </Panel>
         <Panel>
-          <PanelHeader className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">Subcategories</h2>
-            <span className="text-xs tabular-nums text-muted-foreground">{counts.subcategories}</span>
+          <PanelHeader className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold">Subcategories</h2>
+              {selectedCategory ? (
+                <p className="truncate text-xs text-muted-foreground">Under {selectedCategory.name}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">Select a category</p>
+              )}
+            </div>
+            <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{counts.subcategories}</span>
           </PanelHeader>
           <PanelBody>{subcategoryColumn}</PanelBody>
         </Panel>

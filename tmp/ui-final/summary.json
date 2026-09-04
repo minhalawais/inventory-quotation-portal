@@ -1,0 +1,14 @@
+{
+  "baseUrl": "http://localhost:3001",
+  "outputDir": "D:\\Minhal Code Backup\\inventory-quotation-portal-main\\tmp\\ui-final",
+  "captures": [
+    "signin",
+    "signin zoom 125/200",
+    "signin invalid",
+    "inactive",
+    "restricted"
+  ],
+  "auth": {
+    "skipped": "SKIP_AUTH=1"
+  }
+}

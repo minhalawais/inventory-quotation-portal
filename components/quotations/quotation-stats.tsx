@@ -25,7 +25,7 @@ export function QuotationStats({
   const cards = [
     {
       key: "all" as const,
-      label: "Total quotations",
+      label: "Total",
       value: total,
       icon: FileText,
     },
@@ -44,7 +44,7 @@ export function QuotationStats({
   ]
 
   return (
-    <div className="grid grid-cols-3 gap-3">
+    <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1 snap-x snap-mandatory md:mx-0 md:grid md:grid-cols-3 md:overflow-visible md:px-0 md:pb-0">
       {cards.map((card) => {
         const selected = activeStatus === card.key
         return (
@@ -52,7 +52,7 @@ export function QuotationStats({
             key={card.key}
             type="button"
             onClick={() => onSelect(card.key)}
-            className="text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="min-w-[128px] shrink-0 snap-start text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 md:min-w-0"
             aria-pressed={selected}
           >
             <Metric
@@ -60,7 +60,10 @@ export function QuotationStats({
               value={card.value.toLocaleString()}
               detail={periodLabel}
               icon={card.icon}
-              className={cn(selected && "border-foreground")}
+              className={cn(
+                selected && "border-foreground",
+                "p-3 md:p-4 [&_p:nth-child(2)]:text-xl md:[&_p:nth-child(2)]:text-2xl [&_p:last-child]:hidden md:[&_p:last-child]:block",
+              )}
             />
           </button>
         )

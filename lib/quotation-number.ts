@@ -87,8 +87,6 @@ const MISSING_NUMBER = {
 }
 
 export async function ensureQuotationNumbers(db: Db) {
-  await ensureQuotationNumberIndex(db)
-
   const quotations = db.collection("quotations")
   const missing = await quotations.find(MISSING_NUMBER).sort({ createdAt: 1, _id: 1 }).toArray()
 

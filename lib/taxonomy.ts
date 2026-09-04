@@ -43,14 +43,20 @@ export async function findSiblingByName(
   name: string,
   excludeId?: ObjectId,
 ) {
-  const siblings = await col.find({ type, parentId }).toArray()
-  const target = name.trim().toLowerCase()
-  return (
-    siblings.find((item) => {
-      if (excludeId && item._id.equals(excludeId)) return false
-      return item.name.trim().toLowerCase() === target
-    }) ?? null
-  )
+  const normalized = normalizeName(name)
+  if (!normalized) return null
+
+  const exactMatch = await col.findOne({
+    type,
+    parentId,
+    name: normalized,
+    ...(excludeId ? { _id: { $ne: excludeId } } : {}),
+  })
+  if (exactMatch) return exactMatch
+
+  const target = normalized.toLowerCase()
+  const siblings = await col.find({ type, parentId, ...(excludeId ? { _id: { $ne: excludeId } } : {}) }).toArray()
+  return siblings.find((item) => item.name.trim().toLowerCase() === target) ?? null
 }
 
 export async function countTaxonomyChildren(col: Collection<TaxonomyDoc>, parentId: ObjectId) {

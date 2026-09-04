@@ -54,8 +54,15 @@ import { StatusBadge } from "@/components/shared/status-badge"
 import { Toolbar, ToolbarGroup } from "@/components/shared/toolbar"
 import { Panel } from "@/components/shared/panel"
 import { PageHeading } from "@/components/layout/page-heading"
-import { QuotationPeriodSwitch, QUOTATION_MONTHS } from "@/components/quotations/quotation-period-switch"
+import { QuotationPeriodSwitch } from "@/components/quotations/quotation-period-switch"
+import { QuotationPeriodMobileFilter } from "@/components/quotations/quotation-period-mobile-filter"
 import { QuotationStats } from "@/components/quotations/quotation-stats"
+import {
+  formatQuotationPeriodLabel,
+  getQuotationPeriodParts,
+  isDayValidForPeriod,
+  matchesQuotationPeriod,
+} from "@/lib/quotation-period"
 import { quotationStatusLabel, quotationStatusTone } from "@/lib/quotation"
 import { quotationLabel, quotationPdfFilename } from "@/lib/quotation-number"
 import { isInteractiveTarget } from "@/lib/utils"
@@ -103,11 +110,6 @@ function formatDate(value: string) {
   })
 }
 
-function quotationPeriod(createdAt: string) {
-  const date = new Date(createdAt)
-  return { year: date.getFullYear(), month: date.getMonth() }
-}
-
 function itemPreview(items: Quotation["items"]) {
   if (items.length === 0) {
     return { title: "No items", detail: "" }
@@ -125,7 +127,20 @@ function itemPreview(items: Quotation["items"]) {
   return { title: first, detail: detailParts.join(" · ") }
 }
 
-function WhatsAppShareButton({ onClick }: { onClick: () => void }) {
+function WhatsAppShareButton({ onClick, compact = false }: { onClick: () => void; compact?: boolean }) {
+  if (compact) {
+    return (
+      <Button
+        type="button"
+        onClick={onClick}
+        className="h-9 w-9 shrink-0 bg-[#25D366] p-0 text-white hover:bg-[#1ebe57] hover:text-white"
+        aria-label="Share via WhatsApp"
+      >
+        <WhatsAppIcon />
+      </Button>
+    )
+  }
+
   return (
     <Button
       type="button"
@@ -158,6 +173,7 @@ export default function QuotationList({ userRole }: QuotationListProps) {
   const [statusFilter, setStatusFilter] = useState("all")
   const [filterMonth, setFilterMonth] = useState(() => String(new Date().getMonth()))
   const [filterYear, setFilterYear] = useState(() => String(new Date().getFullYear()))
+  const [filterDay, setFilterDay] = useState("all")
   const { toast } = useToast()
   const { data: session } = useSession()
   const isManager = userRole === "manager"
@@ -191,10 +207,33 @@ export default function QuotationList({ userRole }: QuotationListProps) {
   const yearOptions = useMemo(() => {
     const years = new Set<number>([new Date().getFullYear()])
     for (const quotation of quotations) {
-      years.add(quotationPeriod(quotation.createdAt).year)
+      years.add(getQuotationPeriodParts(quotation.createdAt).year)
     }
     return [...years].sort((a, b) => b - a)
   }, [quotations])
+
+  const periodFilters = useMemo(
+    () => ({ year: filterYear, month: filterMonth, day: filterDay }),
+    [filterYear, filterMonth, filterDay],
+  )
+
+  const handleMonthChange = (month: string) => {
+    setFilterMonth(month)
+    if (month === "all") {
+      setFilterDay("all")
+      return
+    }
+    if (!isDayValidForPeriod(filterDay, filterYear, month)) {
+      setFilterDay("all")
+    }
+  }
+
+  const handleYearChange = (year: string) => {
+    setFilterYear(year)
+    if (!isDayValidForPeriod(filterDay, year, filterMonth)) {
+      setFilterDay("all")
+    }
+  }
 
   const filteredQuotations = useMemo(() => {
     let results = [...quotations]
@@ -221,31 +260,17 @@ export default function QuotationList({ userRole }: QuotationListProps) {
       return results
     }
 
-    const year = Number.parseInt(filterYear, 10)
-    results = results.filter((q) => {
-      const period = quotationPeriod(q.createdAt)
-      if (period.year !== year) return false
-      if (filterMonth === "all") return true
-      return period.month === Number.parseInt(filterMonth, 10)
-    })
+    results = results.filter((quotation) => matchesQuotationPeriod(quotation.createdAt, periodFilters))
 
     return results
-  }, [quotations, searchTerm, statusFilter, filterMonth, filterYear])
+  }, [quotations, searchTerm, statusFilter, periodFilters])
 
-  const periodQuotations = useMemo(() => {
-    const year = Number.parseInt(filterYear, 10)
-    return quotations.filter((quotation) => {
-      const period = quotationPeriod(quotation.createdAt)
-      if (period.year !== year) return false
-      if (filterMonth === "all") return true
-      return period.month === Number.parseInt(filterMonth, 10)
-    })
-  }, [quotations, filterMonth, filterYear])
+  const periodQuotations = useMemo(
+    () => quotations.filter((quotation) => matchesQuotationPeriod(quotation.createdAt, periodFilters)),
+    [quotations, periodFilters],
+  )
 
-  const periodLabel =
-    filterMonth === "all"
-      ? `in ${filterYear}`
-      : `in ${QUOTATION_MONTHS[Number.parseInt(filterMonth, 10)]?.label} ${filterYear}`
+  const periodLabel = formatQuotationPeriodLabel(periodFilters)
 
   const periodStats = useMemo(
     () => ({
@@ -571,12 +596,18 @@ export default function QuotationList({ userRole }: QuotationListProps) {
     }
   }
 
-  const overflowActions = (quotation: Quotation) => (
+  const overflowActions = (quotation: Quotation, includeCopyLink = false) => (
     <DropdownMenuContent align="end" className="w-52">
       <DropdownMenuItem onClick={() => void handleView(quotation)}>
         <Eye className="mr-2 h-3.5 w-3.5" />
         Open quotation
       </DropdownMenuItem>
+      {includeCopyLink && (
+        <DropdownMenuItem onClick={() => void handleCopyLink(quotation)}>
+          <Link2 className="mr-2 h-3.5 w-3.5" />
+          Copy link
+        </DropdownMenuItem>
+      )}
       <DropdownMenuItem onClick={() => handlePreview(quotation)}>
         <ExternalLink className="mr-2 h-3.5 w-3.5" />
         Preview public link
@@ -617,17 +648,31 @@ export default function QuotationList({ userRole }: QuotationListProps) {
     <PageHeading
       title="Quotations"
       description="Prepare, send, and track customer quotations."
+      descriptionClassName="hidden md:block"
       icon={FileText}
       actions={
         <>
           <QuotationPeriodSwitch
+            className="hidden md:inline-flex"
             month={filterMonth}
             year={filterYear}
+            day={filterDay}
             years={yearOptions}
-            onMonthChange={setFilterMonth}
-            onYearChange={setFilterYear}
+            onMonthChange={handleMonthChange}
+            onYearChange={handleYearChange}
+            onDayChange={setFilterDay}
           />
-          <Button asChild>
+          <QuotationPeriodMobileFilter
+            className="w-full md:hidden"
+            month={filterMonth}
+            year={filterYear}
+            day={filterDay}
+            years={yearOptions}
+            onMonthChange={handleMonthChange}
+            onYearChange={handleYearChange}
+            onDayChange={setFilterDay}
+          />
+          <Button asChild className="hidden md:inline-flex">
             <Link href="/quotations/create">
               <Plus className="h-4 w-4" /> Create quotation
             </Link>
@@ -639,12 +684,12 @@ export default function QuotationList({ userRole }: QuotationListProps) {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4 pb-20 md:space-y-6 md:pb-0">
         {heading}
-        <div className="grid grid-cols-3 gap-3">
-          <Skeleton className="h-[88px] rounded-lg" />
-          <Skeleton className="h-[88px] rounded-lg" />
-          <Skeleton className="h-[88px] rounded-lg" />
+        <div className="flex gap-3 overflow-hidden md:grid md:grid-cols-3">
+          <Skeleton className="h-[76px] min-w-[128px] shrink-0 rounded-lg md:h-[88px] md:min-w-0" />
+          <Skeleton className="h-[76px] min-w-[128px] shrink-0 rounded-lg md:h-[88px] md:min-w-0" />
+          <Skeleton className="h-[76px] min-w-[128px] shrink-0 rounded-lg md:h-[88px] md:min-w-0" />
         </div>
         <div className="space-y-4">
           <Skeleton className="h-14 w-full rounded-lg" />
@@ -656,7 +701,7 @@ export default function QuotationList({ userRole }: QuotationListProps) {
 
   if (fetchError) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4 pb-20 md:space-y-6 md:pb-0">
         {heading}
         <Panel>
           <ErrorState
@@ -755,7 +800,7 @@ export default function QuotationList({ userRole }: QuotationListProps) {
                       <MoreHorizontal className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
-                  {overflowActions(quotation)}
+                  {overflowActions(quotation, false)}
                 </DropdownMenu>
               </RecordActions>
             </TableCell>
@@ -780,40 +825,50 @@ export default function QuotationList({ userRole }: QuotationListProps) {
           <RecordOpenLink onClick={() => void handleView(quotation)} className="truncate text-sm font-semibold">
             {quotation.customerName}
           </RecordOpenLink>
-          <p className="text-xs text-muted-foreground">{quotation.customerPhone}</p>
+          {quotation.customerPhone ? (
+            <a
+              href={`tel:${quotation.customerPhone.replace(/\s+/g, "")}`}
+              className="block truncate text-xs text-muted-foreground underline-offset-2 hover:underline"
+              onClick={(event) => event.stopPropagation()}
+              data-no-row-click
+            >
+              {quotation.customerPhone}
+            </a>
+          ) : (
+            <p className="text-xs text-muted-foreground">No phone</p>
+          )}
         </div>
         <StatusBadge tone={statusTone(quotation.status)} className="shrink-0">
           {quotationStatusLabel(quotation.status)}
         </StatusBadge>
       </div>
-      <div className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+      <div className="mt-1.5 flex items-center justify-between gap-2 text-xs text-muted-foreground">
         <RecordOpenLink
           onClick={() => void handleView(quotation)}
-          className="font-mono text-xs font-medium text-muted-foreground"
+          className="truncate font-mono font-medium"
         >
           {quotationLabel(quotation)}
         </RecordOpenLink>
-        <span>{formatDate(quotation.createdAt)}</span>
+        <span className="shrink-0 tabular-nums">{formatDate(quotation.createdAt)}</span>
       </div>
-      <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
-        <div>
+      <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-border pt-2.5">
+        <div className="min-w-0">
           <p className="text-sm font-semibold tabular-nums">PKR {quotation.totalAmount.toLocaleString()}</p>
-          <p className="text-xs text-muted-foreground">
+          <p className="truncate text-xs text-muted-foreground">
             {itemPreview(quotation.items).detail || `${quotation.items.length} items`}
             {isManager && quotation.rider?.name ? ` · ${quotation.rider.name}` : ""}
             {quotation.showPrices === false ? " · no price" : ""}
           </p>
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-1.5" data-no-row-click>
-          <WhatsAppShareButton onClick={() => void handleWhatsAppShare(quotation)} />
-          <CopyLinkButton onClick={() => void handleCopyLink(quotation)} />
+        <div className="flex shrink-0 items-center gap-1" data-no-row-click>
+          <WhatsAppShareButton compact onClick={() => void handleWhatsAppShare(quotation)} />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button type="button" variant="ghost" size="icon" className="h-9 w-9" aria-label="More actions">
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            {overflowActions(quotation)}
+            {overflowActions(quotation, true)}
           </DropdownMenu>
         </div>
       </div>
@@ -821,7 +876,7 @@ export default function QuotationList({ userRole }: QuotationListProps) {
   ))
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 pb-20 md:space-y-6 md:pb-0">
       {heading}
       <QuotationStats
         total={periodStats.total}
@@ -845,7 +900,7 @@ export default function QuotationList({ userRole }: QuotationListProps) {
             />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="h-10 w-full sm:w-[150px]" aria-label="Filter by status">
+            <SelectTrigger className="hidden h-10 w-full md:flex md:w-[150px]" aria-label="Filter by status">
               <SelectValue placeholder="All statuses" />
             </SelectTrigger>
             <SelectContent>
@@ -862,9 +917,7 @@ export default function QuotationList({ userRole }: QuotationListProps) {
           <span className="text-xs tabular-nums text-muted-foreground">
             {searchTerm.trim()
               ? `${filteredQuotations.length} results · all time`
-              : filterMonth === "all"
-                ? `${filteredQuotations.length} in ${filterYear}`
-                : `${filteredQuotations.length} in ${QUOTATION_MONTHS[Number.parseInt(filterMonth, 10)]?.label} ${filterYear}`}
+              : `${filteredQuotations.length} ${periodLabel}`}
           </span>
         </ToolbarGroup>
       </Toolbar>
@@ -878,14 +931,18 @@ export default function QuotationList({ userRole }: QuotationListProps) {
                 ? "No quotations yet"
                 : searchTerm.trim()
                   ? "No matching quotations"
-                  : "No quotations this month"
+                  : filterDay !== "all"
+                    ? "No quotations on this date"
+                    : "No quotations this period"
             }
             description={
               quotations.length === 0
                 ? "Create your first quotation to start managing customer quotes."
                 : searchTerm.trim()
                   ? "Try a different search. Search looks across all quotations."
-                  : "Search to look across all quotations, or pick another month."
+                  : filterDay !== "all"
+                    ? "Try another date, or set day to All."
+                    : "Search to look across all quotations, or pick another period."
             }
             actionLabel={quotations.length === 0 ? "Create quotation" : undefined}
             onAction={quotations.length === 0 ? () => router.push("/quotations/create") : undefined}
@@ -901,6 +958,16 @@ export default function QuotationList({ userRole }: QuotationListProps) {
         isOpen={viewModalOpen}
         onClose={() => setViewModalOpen(false)}
       />
+
+      <Button
+        asChild
+        size="icon"
+        className="fixed bottom-5 right-4 z-40 h-12 w-12 rounded-full shadow-lg md:hidden"
+      >
+        <Link href="/quotations/create" aria-label="Create quotation">
+          <Plus className="h-5 w-5" />
+        </Link>
+      </Button>
     </div>
   )
 }
