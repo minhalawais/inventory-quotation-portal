@@ -23,6 +23,11 @@ import {
   quotationStatusTone,
   resolveStoredProductImages,
 } from "@/lib/quotation"
+import {
+  categoryOptionsForSelection,
+  pruneClassificationSelection,
+  subCategoryOptionsForSelection,
+} from "@/lib/quotation-classification-options"
 import type { TaxonomyTree } from "@/lib/product-classification"
 
 const tree: TaxonomyTree = {
@@ -146,7 +151,7 @@ test("mixed department, category, and subcategory narrow the catalog instead of 
     { departmentIds: ["dept-cricket"], categoryIds: [], subCategoryIds: [] },
     tree,
   )
-  assert.deepEqual(ids(cricketOnly), ["p-tape-bat", "p-hard-bat"])
+  assert.deepEqual(ids(cricketOnly), ["p-hard-bat", "p-tape-bat"])
 
   const cricketTape = productsMatchingClassification(
     products,
@@ -177,6 +182,58 @@ test("any mix of department, category, and subcategory is a union without duplic
 
 test("empty classification selection loads nothing", () => {
   assert.deepEqual(productsMatchingNodes(products, [], tree), [])
+})
+
+test("category options scope to selected departments", () => {
+  const all = categoryOptionsForSelection(tree, [])
+  assert.ok(all.some((option) => option.id === "cat-tape" && option.label.includes("Cricket")))
+  assert.ok(all.some((option) => option.id === "cat-cricket-shoes"))
+
+  const cricketOnly = categoryOptionsForSelection(tree, ["dept-cricket"])
+  assert.deepEqual(
+    cricketOnly.map((option) => option.id).sort(),
+    ["cat-hard", "cat-tape"],
+  )
+  assert.ok(cricketOnly.every((option) => !option.label.includes(" · ")))
+})
+
+test("subcategory options scope to selected departments and categories", () => {
+  const cricket = subCategoryOptionsForSelection(tree, ["dept-cricket"], [])
+  assert.deepEqual(
+    cricket.map((option) => option.id).sort(),
+    ["sub-hard-bats", "sub-tape-balls", "sub-tape-bats"],
+  )
+
+  const tapeOnly = subCategoryOptionsForSelection(tree, ["dept-cricket"], ["cat-tape"])
+  assert.deepEqual(
+    tapeOnly.map((option) => option.id).sort(),
+    ["sub-tape-balls", "sub-tape-bats"],
+  )
+  assert.ok(tapeOnly.every((option) => !option.label.includes(" · ")))
+})
+
+test("pruneClassificationSelection drops invalid child picks when parent changes", () => {
+  const pruned = pruneClassificationSelection(tree, {
+    departmentIds: ["dept-footwear"],
+    categoryIds: ["cat-tape"],
+    subCategoryIds: ["sub-tape-bats"],
+  })
+  assert.deepEqual(pruned, {
+    departmentIds: ["dept-footwear"],
+    categoryIds: [],
+    subCategoryIds: [],
+  })
+
+  const kept = pruneClassificationSelection(tree, {
+    departmentIds: ["dept-cricket"],
+    categoryIds: ["cat-tape"],
+    subCategoryIds: ["sub-tape-bats"],
+  })
+  assert.deepEqual(kept, {
+    departmentIds: ["dept-cricket"],
+    categoryIds: ["cat-tape"],
+    subCategoryIds: ["sub-tape-bats"],
+  })
 })
 
 test("walkTaxonomy flattens departments, categories, and subcategories", () => {

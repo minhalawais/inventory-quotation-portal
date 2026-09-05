@@ -29,10 +29,9 @@ import {
   classificationFromProduct,
   groupQuoteItems,
   mergeCatalogLineItems,
-  productsMatchingClassification,
-  productsMatchingNodes,
   quotationItemMatchesQuery,
 } from "@/lib/quotation-catalog"
+import { pruneClassificationSelection } from "@/lib/quotation-classification-options"
 import { useTaxonomy } from "@/components/products/use-taxonomy"
 
 interface Product {
@@ -106,6 +105,7 @@ function normalizeProduct(product: Product): Product {
 
 export default function QuotationForm({ userId }: QuotationFormProps) {
   const [products, setProducts] = useState<Product[]>([])
+  const [catalogProducts, setCatalogProducts] = useState<Product[]>([])
   const [customerData, setCustomerData] = useState({
     name: "",
     phone: "+92 ",
@@ -115,6 +115,7 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
   const [showPrices, setShowPrices] = useState(true)
   const [loading, setLoading] = useState(false)
   const [productsLoading, setProductsLoading] = useState(true)
+  const [catalogLoading, setCatalogLoading] = useState(false)
   const [searchOpen, setSearchOpen] = useState<number | null>(null)
   const [departmentIds, setDepartmentIds] = useState<string[]>([])
   const [categoryIds, setCategoryIds] = useState<string[]>([])
@@ -149,6 +150,72 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
     } finally {
       setProductsLoading(false)
     }
+  }
+
+  const hasClassificationSelection = departmentIds.length + categoryIds.length + subCategoryIds.length > 0
+
+  useEffect(() => {
+    if (!hasClassificationSelection) {
+      setCatalogProducts([])
+      return
+    }
+
+    const params = new URLSearchParams()
+    for (const id of departmentIds) params.append("departmentId", id)
+    for (const id of categoryIds) params.append("categoryId", id)
+    for (const id of subCategoryIds) params.append("subCategoryId", id)
+
+    let cancelled = false
+    async function fetchCatalog() {
+      setCatalogLoading(true)
+      try {
+        const response = await fetch(`/api/products?${params.toString()}`)
+        if (!response.ok) throw new Error("Failed to load catalog")
+        const data = await response.json()
+        if (!cancelled) {
+          const list = Array.isArray(data) ? data : []
+          setCatalogProducts(list.map((product: Product) => normalizeProduct(product)))
+        }
+      } catch {
+        if (!cancelled) {
+          toast({
+            title: "Error",
+            description: "Failed to load catalog products",
+            variant: "destructive",
+          })
+          setCatalogProducts([])
+        }
+      } finally {
+        if (!cancelled) setCatalogLoading(false)
+      }
+    }
+
+    void fetchCatalog()
+    return () => {
+      cancelled = true
+    }
+  }, [departmentIds, categoryIds, subCategoryIds, hasClassificationSelection, toast])
+
+  const handleDepartmentChange = (ids: string[]) => {
+    const pruned = pruneClassificationSelection(tree, {
+      departmentIds: ids,
+      categoryIds,
+      subCategoryIds,
+    })
+    setDepartmentIds(pruned.departmentIds)
+    setCategoryIds(pruned.categoryIds)
+    setSubCategoryIds(pruned.subCategoryIds)
+  }
+
+  const handleCategoryChange = (ids: string[]) => {
+    const pruned = pruneClassificationSelection(tree, {
+      departmentIds,
+      categoryIds: ids,
+      subCategoryIds,
+    })
+    setDepartmentIds(pruned.departmentIds)
+    setCategoryIds(pruned.categoryIds)
+    setSubCategoryIds(pruned.subCategoryIds)
   }
 
   const formatPhoneNumber = (value: string) => {
@@ -227,18 +294,10 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
     })
   }
 
-  const matchedCatalogProducts = useMemo(
-    () =>
-      productsMatchingClassification(
-        products,
-        { departmentIds, categoryIds, subCategoryIds },
-        tree,
-      ),
-    [products, departmentIds, categoryIds, subCategoryIds, tree],
-  )
+  const matchedCatalogProducts = catalogProducts
 
   useEffect(() => {
-    if (taxonomyLoading) return
+    if (taxonomyLoading || catalogLoading) return
 
     const matchedIds = new Set(matchedCatalogProducts.map((product) => asId(product._id)).filter(Boolean))
     for (const id of Array.from(skippedProductIds.current)) {
@@ -273,13 +332,12 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
       }
       return next
     })
-  }, [matchedCatalogProducts, products, catalogEpoch, taxonomyLoading])
+  }, [matchedCatalogProducts, products, catalogEpoch, taxonomyLoading, catalogLoading])
 
   const calculateTotal = () => items.reduce((total, item) => total + item.quantity * item.price, 0)
 
   const filledCount = items.filter((item) => item.productId).length
   const compact = filledCount >= QUOTE_COMPACT_THRESHOLD
-  const hasClassificationSelection = departmentIds.length + categoryIds.length + subCategoryIds.length > 0
 
   const lineGroups = useMemo(() => {
     const decorated = items.map((item) => {
@@ -767,8 +825,8 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
                 departmentIds={departmentIds}
                 categoryIds={categoryIds}
                 subCategoryIds={subCategoryIds}
-                onDepartmentChange={setDepartmentIds}
-                onCategoryChange={setCategoryIds}
+                onDepartmentChange={handleDepartmentChange}
+                onCategoryChange={handleCategoryChange}
                 onSubCategoryChange={setSubCategoryIds}
               />
 
@@ -786,7 +844,7 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
               {items.length === 0 && (
                 <p className="py-4 text-center text-sm text-muted-foreground">
                   {hasClassificationSelection
-                    ? productsLoading || taxonomyLoading
+                    ? productsLoading || taxonomyLoading || catalogLoading
                       ? "Loading products…"
                       : "No in-stock products for that selection."
                     : "Select a department, category, or subcategory to load products. One selection is enough."}

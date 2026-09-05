@@ -9,6 +9,10 @@ import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Skeleton } from "@/components/ui/skeleton"
 import type { TaxonomyTree } from "@/lib/product-classification"
+import {
+  categoryOptionsForSelection,
+  subCategoryOptionsForSelection,
+} from "@/lib/quotation-classification-options"
 import { cn } from "@/lib/utils"
 
 export interface MultiSelectOption {
@@ -20,6 +24,7 @@ interface MultiSelectProps {
   id: string
   label: string
   placeholder: string
+  hint?: string
   options: MultiSelectOption[]
   value: string[]
   onChange: (next: string[]) => void
@@ -36,7 +41,7 @@ function selectedLabel(options: MultiSelectOption[], value: string[], placeholde
   return `${names[0]} +${names.length - 1}`
 }
 
-function MultiSelect({ id, label, placeholder, options, value, onChange, disabled }: MultiSelectProps) {
+function MultiSelect({ id, label, placeholder, hint, options, value, onChange, disabled }: MultiSelectProps) {
   const [open, setOpen] = useState(false)
   const toggle = (optionId: string) => {
     if (value.includes(optionId)) onChange(value.filter((id) => id !== optionId))
@@ -87,6 +92,7 @@ function MultiSelect({ id, label, placeholder, options, value, onChange, disable
           </Command>
         </PopoverContent>
       </Popover>
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   )
 }
@@ -117,26 +123,12 @@ export function QuotationClassificationSelects({
     [tree],
   )
   const categoryOptions = useMemo(
-    () =>
-      tree.departments.flatMap((department) =>
-        department.categories.map((category) => ({
-          id: category._id,
-          label: `${department.name} · ${category.name}`,
-        })),
-      ),
-    [tree],
+    () => categoryOptionsForSelection(tree, departmentIds),
+    [tree, departmentIds],
   )
   const subCategoryOptions = useMemo(
-    () =>
-      tree.departments.flatMap((department) =>
-        department.categories.flatMap((category) =>
-          category.subcategories.map((subcategory) => ({
-            id: subcategory._id,
-            label: `${department.name} · ${category.name} · ${subcategory.name}`,
-          })),
-        ),
-      ),
-    [tree],
+    () => subCategoryOptionsForSelection(tree, departmentIds, categoryIds),
+    [tree, departmentIds, categoryIds],
   )
 
   if (loading) {
@@ -150,31 +142,49 @@ export function QuotationClassificationSelects({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-      <MultiSelect
-        id="quote-departments"
-        label="Department"
-        placeholder="Select departments"
-        options={departmentOptions}
-        value={departmentIds}
-        onChange={onDepartmentChange}
-      />
-      <MultiSelect
-        id="quote-categories"
-        label="Category"
-        placeholder="Select categories"
-        options={categoryOptions}
-        value={categoryIds}
-        onChange={onCategoryChange}
-      />
-      <MultiSelect
-        id="quote-subcategories"
-        label="Subcategory"
-        placeholder="Select subcategories"
-        options={subCategoryOptions}
-        value={subCategoryIds}
-        onChange={onSubCategoryChange}
-      />
+    <div className="space-y-3">
+      <p className="text-xs text-muted-foreground">
+        Pick any level to load products. Each level narrows the list. One selection is enough.
+      </p>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <MultiSelect
+          id="quote-departments"
+          label="Department"
+          placeholder="All departments"
+          options={departmentOptions}
+          value={departmentIds}
+          onChange={onDepartmentChange}
+        />
+        <MultiSelect
+          id="quote-categories"
+          label="Category"
+          placeholder="All categories"
+          hint={
+            departmentIds.length > 0
+              ? "Showing categories in selected department(s)."
+              : "Select a department to narrow this list."
+          }
+          options={categoryOptions}
+          value={categoryIds}
+          onChange={onCategoryChange}
+        />
+        <MultiSelect
+          id="quote-subcategories"
+          label="Subcategory"
+          placeholder="All subcategories"
+          hint={
+            categoryIds.length > 0
+              ? "Showing subcategories in selected category(ies)."
+              : departmentIds.length > 0
+                ? "Select a category to narrow further."
+                : "Select a category to narrow this list."
+          }
+          options={subCategoryOptions}
+          value={subCategoryIds}
+          onChange={onSubCategoryChange}
+          disabled={subCategoryOptions.length === 0}
+        />
+      </div>
     </div>
   )
 }

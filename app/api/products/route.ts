@@ -3,7 +3,27 @@ import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import clientPromise from "@/lib/mongodb"
 import { withClassification } from "@/lib/product-classification"
-import { resolveProductClassification } from "@/lib/taxonomy"
+import { productsMatchingClassification } from "@/lib/quotation-catalog"
+import { buildTaxonomyTree, resolveProductClassification } from "@/lib/taxonomy"
+
+function parseIdList(searchParams: URLSearchParams, key: string) {
+  const values = searchParams.getAll(key)
+  if (values.length === 1 && values[0]?.includes(",")) {
+    return values[0].split(",").map((value) => value.trim()).filter(Boolean)
+  }
+  return values.filter(Boolean)
+}
+
+function serializeProduct(product: Record<string, unknown>) {
+  const classified = withClassification(product)
+  return {
+    ...classified,
+    _id: String(product._id),
+    departmentId: product.departmentId ? String(product.departmentId) : classified.departmentId,
+    categoryId: product.categoryId ? String(product.categoryId) : classified.categoryId,
+    subCategoryId: product.subCategoryId ? String(product.subCategoryId) : classified.subCategoryId,
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,6 +34,11 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const lowStock = searchParams.get("lowStock")
+    const departmentIds = parseIdList(searchParams, "departmentId")
+    const categoryIds = parseIdList(searchParams, "categoryId")
+    const subCategoryIds = parseIdList(searchParams, "subCategoryId")
+    const hasClassificationFilter =
+      departmentIds.length > 0 || categoryIds.length > 0 || subCategoryIds.length > 0
 
     const client = await clientPromise
     const db = client.db("inventory_portal")
@@ -24,21 +49,19 @@ export async function GET(request: NextRequest) {
       query = { isOutOfStock: true }
     }
 
-    // Sort by productId in descending order (assuming higher IDs are newer)
     const result = await products.find(query).sort({ productId: -1 }).toArray()
+    let serialized = result.map((product) => serializeProduct(product as Record<string, unknown>))
 
-    return NextResponse.json(
-      result.map((product) => {
-        const classified = withClassification(product)
-        return {
-          ...classified,
-          _id: product._id.toString(),
-          departmentId: product.departmentId ? String(product.departmentId) : classified.departmentId,
-          categoryId: product.categoryId ? String(product.categoryId) : classified.categoryId,
-          subCategoryId: product.subCategoryId ? String(product.subCategoryId) : classified.subCategoryId,
-        }
-      }),
-    )
+    if (hasClassificationFilter) {
+      const tree = await buildTaxonomyTree(db)
+      serialized = productsMatchingClassification(
+        serialized,
+        { departmentIds, categoryIds, subCategoryIds },
+        tree,
+      )
+    }
+
+    return NextResponse.json(serialized)
   } catch (error) {
     console.error("Products API error:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
