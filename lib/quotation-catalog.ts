@@ -157,6 +157,51 @@ export function productsMatchingNodes<T extends ClassifiableProduct & { _id: str
   return matched
 }
 
+export interface ClassificationFilterSelection {
+  departmentIds: Iterable<string>
+  categoryIds: Iterable<string>
+  subCategoryIds: Iterable<string>
+}
+
+/** Narrow catalog picks: union within each level, intersection across levels. */
+export function productsMatchingClassification<T extends ClassifiableProduct & { _id: string }>(
+  products: T[],
+  selection: ClassificationFilterSelection,
+  tree: TaxonomyTree,
+): T[] {
+  const departmentIds = new Set(Array.from(selection.departmentIds, asId).filter(Boolean))
+  const categoryIds = new Set(Array.from(selection.categoryIds, asId).filter(Boolean))
+  const subCategoryIds = new Set(Array.from(selection.subCategoryIds, asId).filter(Boolean))
+
+  if (departmentIds.size === 0 && categoryIds.size === 0 && subCategoryIds.size === 0) return []
+
+  const nodes = walkTaxonomy(tree)
+  const departmentNodes = nodes.filter((node) => node.type === "department" && departmentIds.has(asId(node.id)))
+  const categoryNodes = nodes.filter((node) => node.type === "category" && categoryIds.has(asId(node.id)))
+  const subCategoryNodes = nodes.filter((node) => node.type === "subcategory" && subCategoryIds.has(asId(node.id)))
+
+  const seen = new Set<string>()
+  const matched: T[] = []
+
+  for (const product of products) {
+    const id = asId(product._id)
+    if (!id || seen.has(id)) continue
+
+    const departmentOk =
+      departmentIds.size === 0 || departmentNodes.some((node) => productMatchesNode(product, node, tree))
+    const categoryOk = categoryIds.size === 0 || categoryNodes.some((node) => productMatchesNode(product, node, tree))
+    const subCategoryOk =
+      subCategoryIds.size === 0 || subCategoryNodes.some((node) => productMatchesNode(product, node, tree))
+
+    if (departmentOk && categoryOk && subCategoryOk) {
+      seen.add(id)
+      matched.push(product)
+    }
+  }
+
+  return matched
+}
+
 export function countProductsForNode<T extends ClassifiableProduct>(
   products: T[],
   node: CatalogPickNode,

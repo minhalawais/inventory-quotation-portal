@@ -10,6 +10,7 @@ import {
   asId,
   groupQuoteItems,
   mergeCatalogLineItems,
+  productsMatchingClassification,
   productsMatchingNodes,
   quotationItemMatchesQuery,
   walkTaxonomy,
@@ -137,6 +138,36 @@ test("same category name in two departments stays distinct", () => {
   const badminton = productsMatchingNodes(products, ["cat-badminton-rackets"], tree)
   assert.deepEqual(ids(padel), ["p-padel"])
   assert.deepEqual(ids(badminton), ["p-badminton"])
+})
+
+test("mixed department, category, and subcategory narrow the catalog instead of unioning it", () => {
+  const cricketOnly = productsMatchingClassification(
+    products,
+    { departmentIds: ["dept-cricket"], categoryIds: [], subCategoryIds: [] },
+    tree,
+  )
+  assert.deepEqual(ids(cricketOnly), ["p-tape-bat", "p-hard-bat"])
+
+  const cricketTape = productsMatchingClassification(
+    products,
+    { departmentIds: ["dept-cricket"], categoryIds: ["cat-tape"], subCategoryIds: [] },
+    tree,
+  )
+  assert.deepEqual(ids(cricketTape), ["p-tape-bat"])
+
+  const tapeBats = productsMatchingClassification(
+    products,
+    { departmentIds: [], categoryIds: ["cat-tape"], subCategoryIds: ["sub-tape-bats"] },
+    tree,
+  )
+  assert.deepEqual(ids(tapeBats), ["p-tape-bat"])
+
+  const footwearCricket = productsMatchingClassification(
+    products,
+    { departmentIds: ["dept-footwear"], categoryIds: ["cat-tape"], subCategoryIds: [] },
+    tree,
+  )
+  assert.deepEqual(ids(footwearCricket), [])
 })
 
 test("any mix of department, category, and subcategory is a union without duplicates", () => {

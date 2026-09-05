@@ -29,6 +29,7 @@ import {
   classificationFromProduct,
   groupQuoteItems,
   mergeCatalogLineItems,
+  productsMatchingClassification,
   productsMatchingNodes,
   quotationItemMatchesQuery,
 } from "@/lib/quotation-catalog"
@@ -227,7 +228,12 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
   }
 
   const matchedCatalogProducts = useMemo(
-    () => productsMatchingNodes(products, [...departmentIds, ...categoryIds, ...subCategoryIds], tree),
+    () =>
+      productsMatchingClassification(
+        products,
+        { departmentIds, categoryIds, subCategoryIds },
+        tree,
+      ),
     [products, departmentIds, categoryIds, subCategoryIds, tree],
   )
 
