@@ -232,6 +232,8 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
   )
 
   useEffect(() => {
+    if (taxonomyLoading) return
+
     const matchedIds = new Set(matchedCatalogProducts.map((product) => asId(product._id)).filter(Boolean))
     for (const id of Array.from(skippedProductIds.current)) {
       if (!matchedIds.has(id)) skippedProductIds.current.delete(id)
@@ -243,7 +245,8 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
         itemFromProduct(product, "catalog"),
       )
       const catalogItems = merged.filter((item) => item.source === "catalog")
-      const manual = merged.filter((item) => item.source !== "catalog")
+      const manual = merged.filter((item) => item.source !== "catalog" && item.productId)
+      const emptyManual = merged.filter((item) => item.source !== "catalog" && !item.productId)
       catalogItems.sort((a, b) => {
         const productA = products.find((product) => product._id === a.productId)
         const productB = products.find((product) => product._id === b.productId)
@@ -252,7 +255,10 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
         if (labelA !== labelB) return labelA.localeCompare(labelB)
         return (productA?.name || "").localeCompare(productB?.name || "")
       })
-      const next = [...catalogItems, ...manual]
+      const next =
+        catalogItems.length > 0
+          ? [...catalogItems, ...manual]
+          : [...catalogItems, ...manual, ...emptyManual.slice(0, 1)]
       if (
         next.length === current.length &&
         next.every((item, index) => item.key === current[index]?.key && item.productId === current[index]?.productId)
@@ -261,7 +267,7 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
       }
       return next
     })
-  }, [matchedCatalogProducts, products, catalogEpoch])
+  }, [matchedCatalogProducts, products, catalogEpoch, taxonomyLoading])
 
   const calculateTotal = () => items.reduce((total, item) => total + item.quantity * item.price, 0)
 
@@ -312,14 +318,18 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
       return
     }
 
-    if (items.length === 0 || items.some((item) => !item.productId)) {
+    if (filledCount === 0) {
       toast({
-        title: "Incomplete items",
-        description: "Add at least one product before creating the quotation.",
+        title: "No products on quote",
+        description: hasClassificationSelection
+          ? "No in-stock products matched that selection. Try another department or category, or add items manually."
+          : "Select a department, category, or subcategory to load products, or add items manually.",
         variant: "destructive",
       })
       return
     }
+
+    const quoteItems = items.filter((item) => item.productId)
 
     setLoading(true)
 
@@ -332,8 +342,8 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
           customerName: customerData.name,
           customerPhone: customerData.phone,
           customerAddress: customerData.address,
-          items: items.map(({ key: _key, source: _source, ...item }) => item),
-          totalAmount: calculateTotal(),
+          items: quoteItems.map(({ key: _key, source: _source, ...item }) => item),
+          totalAmount: quoteItems.reduce((total, item) => total + item.quantity * item.price, 0),
           showPrices,
         }),
       })
@@ -643,7 +653,7 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
       <Button
         type="button"
         className="w-full"
-        disabled={loading || items.length === 0}
+        disabled={loading || filledCount === 0}
         onClick={() => void handleSubmit()}
       >
         {loading ? (
@@ -665,7 +675,7 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
   )
 
   return (
-    <form onSubmit={(e) => void handleSubmit(e)} className={cn("space-y-4", items.length > 0 && "pb-24 lg:pb-0")}>
+    <form onSubmit={(e) => void handleSubmit(e)} className={cn("space-y-4", filledCount > 0 && "pb-24 lg:pb-0")}>
       <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(260px,1fr)]">
         <div className="space-y-4">
           <Panel>
@@ -756,13 +766,24 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
                 onSubCategoryChange={setSubCategoryIds}
               />
 
+              {hasClassificationSelection && matchedCatalogProducts.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {matchedCatalogProducts.length} in-stock product
+                  {matchedCatalogProducts.length === 1 ? "" : "s"} loaded
+                  {departmentIds.length > 0 && categoryIds.length === 0 && subCategoryIds.length === 0
+                    ? " from selected department(s)"
+                    : ""}
+                  .
+                </p>
+              )}
+
               {items.length === 0 && (
                 <p className="py-4 text-center text-sm text-muted-foreground">
                   {hasClassificationSelection
-                    ? productsLoading
+                    ? productsLoading || taxonomyLoading
                       ? "Loading products…"
-                      : "No in-stock products for that classification."
-                    : "Select a department, category, or subcategory to load products, or add one item."}
+                      : "No in-stock products for that selection."
+                    : "Select a department, category, or subcategory to load products. One selection is enough."}
                 </p>
               )}
 
@@ -831,7 +852,7 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
             <Button type="button" variant="outline" onClick={() => router.back()} disabled={loading}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading || items.length === 0}>
+            <Button type="submit" disabled={loading || filledCount === 0}>
               {loading ? "Creating…" : "Create quotation"}
             </Button>
           </FormActions>
@@ -855,7 +876,7 @@ export default function QuotationForm({ userId }: QuotationFormProps) {
           </div>
           <Button
             type="button"
-            disabled={loading || items.length === 0}
+            disabled={loading || filledCount === 0}
             onClick={() => void handleSubmit()}
             className="h-10"
           >

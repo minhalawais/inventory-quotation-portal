@@ -21,7 +21,7 @@ export default async function CreateQuotationPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeading title="Create quotation" description="Customer details, then select departments, categories, or subcategories to load products." icon={FilePlus2} actions={
+      <PageHeading title="Create quotation" description="Customer details, then pick any department, category, or subcategory to load products." icon={FilePlus2} actions={
         <Button variant="outline" asChild><Link href="/quotations"><ArrowLeft className="h-4 w-4" /> Back to quotations</Link></Button>
       } />
       <QuotationForm userId={session.user.id} />
