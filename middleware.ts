@@ -4,6 +4,17 @@ import type { NextRequest } from "next/server"
 import { getClientIP, isIPAllowed } from "./lib/ip-utils"
 import { getToken } from "next-auth/jwt"
 
+function redirectUrl(path: string, request: NextRequest) {
+  const protocol = request.headers.get("x-forwarded-proto") || request.nextUrl.protocol.replace(":", "") || "http"
+  const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || request.nextUrl.host
+
+  if (host) {
+    return new URL(path, `${protocol}://${host}`)
+  }
+
+  return new URL(path, request.url)
+}
+
 export default async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   const isPublicQuotation = /^\/quotations\/[a-f\d]{24}\/?$/i.test(pathname)
@@ -26,10 +37,10 @@ export default async function middleware(request: NextRequest) {
 
     if (!token?.email) {
       // Not logged in → redirect to signin
-      return NextResponse.redirect(new URL("/auth/signin", request.url))
+      return NextResponse.redirect(redirectUrl("/auth/signin", request))
     }
     if (token.status === "inactive") {
-      return NextResponse.redirect(new URL("/auth/inactive", request.url))
+      return NextResponse.redirect(redirectUrl("/auth/inactive", request))
     }
     // ✅ Extract allowed IPs from token (already set in authOptions)
     const clientIP = getClientIP(request)
@@ -38,7 +49,7 @@ export default async function middleware(request: NextRequest) {
     
     if (!isAllowed) {
       // If IP is not allowed → redirect to restricted
-      return NextResponse.redirect(new URL("/restricted", request.url))
+      return NextResponse.redirect(redirectUrl("/restricted", request))
     }
 
     // ✅ All good → allow request
