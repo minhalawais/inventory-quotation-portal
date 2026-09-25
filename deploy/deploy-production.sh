@@ -18,6 +18,9 @@ else
   git reset --hard "origin/$BRANCH"
 fi
 
+echo "Cleaning previous dependency install..."
+rm -rf node_modules
+
 echo "Installing production dependencies..."
 npm ci
 
