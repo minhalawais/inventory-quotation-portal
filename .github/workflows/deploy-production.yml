@@ -1,0 +1,90 @@
+name: Deploy production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      MONGODB_URI: mongodb://127.0.0.1:27017/inventory_portal_ci
+      NEXTAUTH_URL: http://127.0.0.1:3000
+      NEXTAUTH_SECRET: ci-nextauth-secret-change-not-used-in-production
+      TEST_BASE_URL: http://127.0.0.1:3000
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Run database migrations
+        run: npm run db:migrate
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Start app for smoke tests
+        run: |
+          npm run start > /tmp/inventory-portal.log 2>&1 &
+          echo $! > /tmp/inventory-portal.pid
+          npx wait-on http://127.0.0.1:3000/auth/signin --timeout 60000
+
+      - name: Smoke tests
+        run: npm run test:smoke
+
+      - name: Stop app
+        if: always()
+        run: |
+          if [ -f /tmp/inventory-portal.pid ]; then
+            kill "$(cat /tmp/inventory-portal.pid)" || true
+          fi
+
+  deploy:
+    name: Deploy to Hostinger VPS
+    runs-on: ubuntu-latest
+    needs: validate
+    environment: production
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT || 22 }}
+          script_stop: true
+          envs: GITHUB_SHA
+          script: |
+            export GITHUB_SHA="${{ github.sha }}"
+            export BRANCH="main"
+            export APP_DIR="/var/www/inventory-quotation-portal"
+            export APP_NAME="inventory-quotation-portal"
+            bash /var/www/inventory-quotation-portal/deploy/deploy-production.sh
