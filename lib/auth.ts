@@ -1,10 +1,8 @@
 import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
-import { MongoClient } from "mongodb"
 import bcrypt from "bcryptjs"
+import clientPromise from "@/lib/mongodb"
 import { normalizeEmail, normalizeUsername } from "@/lib/usernames"
-
-const client = new MongoClient(process.env.MONGODB_URI!)
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -27,7 +25,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          await client.connect()
+          const client = await clientPromise
           const db = client.db("inventory_portal")
           const users = db.collection("users")
 
@@ -59,8 +57,6 @@ export const authOptions: NextAuthOptions = {
         } catch (error) {
           console.error("Auth error:", error)
           return null
-        } finally {
-          await client.close()
         }
       },
     }),

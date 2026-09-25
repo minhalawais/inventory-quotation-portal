@@ -1,65 +1,496 @@
-rm -rf ISP-MANAGEMENT-SYSTEM
-rm -rf MBA-NET-BACKED
-cd /var/www/html/ISP-MANAGEMENT-SYSTEM
-git clone https://github.com/minhalawais/ISP-MANAGEMENT-SYSTEM.git
-git clone https://github.com/minhalawais/MBA-NET-BACKED.git
-npm install --legacy-peer-deps
-npm install typescript --legacy-peer-deps --save-dev
-npm install @babel/plugin-proposal-private-property-in-object --save-dev --legacy-peer-deps
+# Inventory Quotation Portal - VPS Maintenance Commands
+
+Server IP:
+187.53.139.52
+
+App directory:
+/var/www/inventory-quotation-portal
+
+PM2 app name:
+inventory-quotation-portal
+
+Production URL without domain:
+http://187.53.139.52
+
+
+============================================================
+1. SSH INTO SERVER
+============================================================
+
+From Windows PowerShell:
+
+ssh -i "C:\Users\Mg\.ssh\inventory_portal_github_actions" deploy@187.53.139.52
+
+If you need root access:
+
+ssh root@187.53.139.52
+
+
+============================================================
+2. CHECK APP STATUS
+============================================================
+
+sudo -u deploy pm2 status
+
+sudo -u deploy pm2 logs inventory-quotation-portal --lines 100
+
+sudo -u deploy pm2 monit
+
+curl -I http://127.0.0.1:3000/auth/signin
+
+curl -I http://187.53.139.52
+
+
+============================================================
+3. RESTART APP
+============================================================
+
+sudo -u deploy pm2 restart inventory-quotation-portal --update-env
+
+sudo -u deploy pm2 reload inventory-quotation-portal --update-env
+
+sudo -u deploy pm2 save
+
+
+============================================================
+4. MANUAL DEPLOY LATEST MAIN
+============================================================
+
+sudo -u deploy bash -lc 'cd /var/www/inventory-quotation-portal && BRANCH=main APP_DIR=/var/www/inventory-quotation-portal APP_NAME=inventory-quotation-portal bash deploy/deploy-production.sh'
+
+
+============================================================
+5. MANUAL DEPLOY SPECIFIC COMMIT
+============================================================
+
+Replace COMMIT_SHA_HERE with the GitHub commit hash:
+
+sudo -u deploy bash -lc 'cd /var/www/inventory-quotation-portal && GITHUB_SHA=COMMIT_SHA_HERE BRANCH=main APP_DIR=/var/www/inventory-quotation-portal APP_NAME=inventory-quotation-portal bash deploy/deploy-production.sh'
+
+
+============================================================
+6. CLEAN INSTALL AND BUILD MANUALLY
+============================================================
+
+sudo -u deploy bash -lc 'cd /var/www/inventory-quotation-portal && rm -rf node_modules && npm ci && npm run build'
+
+
+============================================================
+7. RUN DATABASE MIGRATIONS / INDEXES
+============================================================
+
+sudo -u deploy bash -lc 'cd /var/www/inventory-quotation-portal && npm run db:migrate'
+
+This ensures MongoDB indexes, including:
+- users.email_1
+- users.username_1
+- products.productId_1
+- quotations.quotationNo_1
+
+
+============================================================
+8. CHECK CURRENT DEPLOYED COMMIT
+============================================================
+
+sudo -u deploy bash -lc 'cd /var/www/inventory-quotation-portal && git rev-parse --short HEAD && git log -1 --oneline'
+
+
+============================================================
+9. CHECK ENVIRONMENT FILE
+============================================================
+
+sudo -u deploy bash -lc 'cd /var/www/inventory-quotation-portal && grep -n "^[A-Z_]*=" .env.local'
+
+Edit production env:
+
+sudo -u deploy nano /var/www/inventory-quotation-portal/.env.local
+
+Required values:
+
+MONGODB_URI=mongodb://127.0.0.1:27017/inventory_portal
+NEXTAUTH_URL=http://187.53.139.52
+NEXTAUTH_SECRET=your-long-random-secret
+
+Optional MongoDB pool tuning:
+
+MONGODB_MAX_POOL_SIZE=20
+MONGODB_MIN_POOL_SIZE=2
+MONGODB_SERVER_SELECTION_TIMEOUT_MS=5000
+MONGODB_CONNECT_TIMEOUT_MS=10000
+MONGODB_SOCKET_TIMEOUT_MS=45000
+
+After env changes:
+
+sudo -u deploy pm2 restart inventory-quotation-portal --update-env
+
+
+============================================================
+10. WHEN DOMAIN IS ADDED
+============================================================
+
+DNS records:
+
+Type: A
+Name: @
+Value: 187.53.139.52
+TTL: Auto
+
+Type: A
+Name: www
+Value: 187.53.139.52
+TTL: Auto
+
+Edit Nginx:
+
+nano /etc/nginx/sites-available/inventory-quotation-portal
+
+Change:
+
+server_name 187.53.139.52;
+
+To:
+
+server_name yourdomain.com www.yourdomain.com;
+
+Test and reload:
+
+nginx -t
+systemctl reload nginx
+
+Update app env:
+
+sudo -u deploy nano /var/www/inventory-quotation-portal/.env.local
+
+Change:
+
+NEXTAUTH_URL=http://187.53.139.52
+
+To:
+
+NEXTAUTH_URL=https://yourdomain.com
+
+Restart app:
+
+sudo -u deploy pm2 restart inventory-quotation-portal --update-env
+
+
+============================================================
+11. SSL CERTIFICATE AFTER DOMAIN IS ACTIVE
+============================================================
+
+apt install -y certbot python3-certbot-nginx
+
+certbot --nginx -d yourdomain.com -d www.yourdomain.com
+
+Check renewal:
+
+certbot renew --dry-run
+
+
+============================================================
+12. NGINX COMMANDS
+============================================================
+
+nginx -t
+
+systemctl status nginx
+
+systemctl reload nginx
+
+systemctl restart nginx
+
+journalctl -u nginx --no-pager -n 100
+
+View site config:
+
+cat /etc/nginx/sites-available/inventory-quotation-portal
+
+Edit site config:
+
+nano /etc/nginx/sites-available/inventory-quotation-portal
+
+
+============================================================
+13. EXPECTED NGINX CONFIG FOR IP-ONLY MODE
+============================================================
+
+server {
+    listen 80;
+    server_name 187.53.139.52;
+
+    client_max_body_size 25m;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+
+
+============================================================
+14. MONGODB STATUS AND SHELL
+============================================================
+
+systemctl status mongod
+
+systemctl restart mongod
+
+journalctl -u mongod --no-pager -n 100
+
+Open Mongo shell:
+
+mongosh inventory_portal
+
+Useful Mongo commands:
+
+db.users.find({}, {name:1, email:1, username:1, role:1, status:1}).pretty()
+
+db.users.findOne({email:"admin@inventory.com"})
+
+db.users.findOne({username:"admin"})
+
+db.users.getIndexes()
+
+db.products.countDocuments()
+
+db.quotations.countDocuments()
+
+
+============================================================
+15. CREATE OR RESET A USER PASSWORD
+============================================================
+
+Use this carefully. Replace email and password:
+
+sudo -u deploy bash -lc 'cd /var/www/inventory-quotation-portal && node -e "require(\"dotenv\").config({path:\".env.local\"}); const {MongoClient}=require(\"mongodb\"); const bcrypt=require(\"bcryptjs\"); (async()=>{const client=new MongoClient(process.env.MONGODB_URI); await client.connect(); const db=client.db(\"inventory_portal\"); const hash=await bcrypt.hash(\"NEW_PASSWORD_HERE\",12); const result=await db.collection(\"users\").updateOne({email:\"USER_EMAIL_HERE\"}, {$set:{password:hash, updatedAt:new Date()}}); console.log(result); await client.close();})().catch((e)=>{console.error(e); process.exit(1)})"'
+
+
+============================================================
+16. CREATE MANAGER USER MANUALLY
+============================================================
+
+Replace values before running:
+
+sudo -u deploy bash -lc 'cd /var/www/inventory-quotation-portal && node -e "require(\"dotenv\").config({path:\".env.local\"}); const {MongoClient}=require(\"mongodb\"); const bcrypt=require(\"bcryptjs\"); (async()=>{const client=new MongoClient(process.env.MONGODB_URI); await client.connect(); const db=client.db(\"inventory_portal\"); const password=await bcrypt.hash(\"PASSWORD_HERE\",12); await db.collection(\"users\").insertOne({name:\"Manager Name\", email:\"manager@example.com\", username:\"manager\", password, role:\"manager\", contact:\"\", status:\"active\", allowedIps:[\"*\"], createdAt:new Date()}); await client.close(); console.log(\"manager created\");})().catch((e)=>{console.error(e); process.exit(1)})"'
+
+
+============================================================
+17. MONGODB BACKUP
+============================================================
+
+Create backup folder:
+
+mkdir -p /var/backups/inventory-quotation-portal
+
+Backup database:
+
+mongodump --db inventory_portal --out /var/backups/inventory-quotation-portal/$(date +%Y-%m-%d_%H-%M-%S)
+
+List backups:
+
+ls -lah /var/backups/inventory-quotation-portal
+
+
+============================================================
+18. MONGODB RESTORE
+============================================================
+
+Replace BACKUP_FOLDER with actual folder name:
+
+mongorestore --db inventory_portal --drop /var/backups/inventory-quotation-portal/BACKUP_FOLDER/inventory_portal
+
+After restore:
+
+sudo -u deploy bash -lc 'cd /var/www/inventory-quotation-portal && npm run db:migrate'
+
+sudo -u deploy pm2 restart inventory-quotation-portal --update-env
+
+
+============================================================
+19. BACKUP UPLOADED PRODUCT IMAGES
+============================================================
+
+mkdir -p /var/backups/inventory-quotation-portal/uploads
+
+tar -czf /var/backups/inventory-quotation-portal/uploads/products-$(date +%Y-%m-%d_%H-%M-%S).tar.gz -C /var/www/inventory-quotation-portal/public uploads
+
+List upload backups:
+
+ls -lah /var/backups/inventory-quotation-portal/uploads
+
+
+============================================================
+20. RESTORE UPLOADED PRODUCT IMAGES
+============================================================
+
+Replace FILE_NAME:
+
+tar -xzf /var/backups/inventory-quotation-portal/uploads/FILE_NAME.tar.gz -C /var/www/inventory-quotation-portal/public
+
+chown -R deploy:deploy /var/www/inventory-quotation-portal/public/uploads
+
+sudo -u deploy pm2 restart inventory-quotation-portal --update-env
+
+
+============================================================
+21. SERVER RESOURCE CHECKS
+============================================================
+
+df -h
+
+free -h
+
+top
+
+uptime
+
+du -sh /var/www/inventory-quotation-portal
+
+du -sh /var/www/inventory-quotation-portal/node_modules
+
+du -sh /var/www/inventory-quotation-portal/.next
+
+
+============================================================
+22. CLEAR BUILD CACHE AND REBUILD
+============================================================
+
+sudo -u deploy bash -lc 'cd /var/www/inventory-quotation-portal && rm -rf .next && npm run build && pm2 reload inventory-quotation-portal --update-env'
+
+
+============================================================
+23. CHECK PORTS
+============================================================
+
+ss -tulpn | grep -E ":80|:443|:3000|:27017"
+
+curl -I http://127.0.0.1:3000/auth/signin
+
+curl -I http://127.0.0.1
+
+
+============================================================
+24. GITHUB ACTIONS SECRETS REQUIRED
+============================================================
+
+In GitHub:
+Settings -> Secrets and variables -> Actions
+
+Required secrets:
+
+VPS_HOST=187.53.139.52
+VPS_USER=deploy
+VPS_SSH_PORT=22
+VPS_SSH_KEY=full private deploy key
+
+
+============================================================
+25. TRIGGER DEPLOYMENT FROM LOCAL COMPUTER
+============================================================
+
+git commit --allow-empty -m "Trigger production deployment"
+
+git push origin main
+
+
+============================================================
+26. CHECK LOCAL REPO BEFORE PUSH
+============================================================
+
+git status --short
+
+git log -1 --oneline
+
 npm run build
-pm2 serve build 3000 --name "react-app"
-cd ..
-mkdir backend
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-pip install asgiref
-pm2 start "flask run --host=0.0.0.0 --port=5000" --name "flask-app"
-sudo systemctl restart nginx
-sudo nano /etc/nginx/sites-available/default
 
 
+============================================================
+27. COMMON PROBLEMS
+============================================================
 
-sudo -u postgres psql -h localhost -U root -d isp_management
+Problem:
+Site redirects to localhost.
 
-SQLALCHEMY_DATABASE_URI = 'postgresql://root:M.m03007493358@localhost:5432/isp_management'
+Fix:
+Check .env.local:
 
--- 1. Drop unique constraint on email
-ALTER TABLE customers DROP CONSTRAINT IF EXISTS customers_email_key;
+sudo -u deploy bash -lc 'cd /var/www/inventory-quotation-portal && grep NEXTAUTH_URL .env.local'
 
-CREATE TABLE bank_accounts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    company_id UUID NOT NULL,
-    bank_name VARCHAR(100) NOT NULL,
-    account_title VARCHAR(100) NOT NULL,
-    account_number VARCHAR(50) NOT NULL,
-    iban VARCHAR(34),
-    branch_code VARCHAR(20),
-    branch_address TEXT,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    
-    CONSTRAINT fk_bank_accounts_company
-        FOREIGN KEY (company_id) 
-        REFERENCES companies(id)
-        ON DELETE CASCADE
-);
+Set:
 
--- Create index for better performance
-CREATE INDEX idx_bank_accounts_company_id ON bank_accounts(company_id);
-CREATE INDEX idx_bank_accounts_is_active ON bank_accounts(is_active);
+NEXTAUTH_URL=http://187.53.139.52
 
--- Add the new column
-ALTER TABLE payments 
-ADD COLUMN bank_account_id UUID;
+Then:
 
--- Add foreign key constraint
-ALTER TABLE payments
-ADD CONSTRAINT fk_payments_bank_account
-    FOREIGN KEY (bank_account_id)
-    REFERENCES bank_accounts(id)
-    ON DELETE SET NULL;
+sudo -u deploy pm2 restart inventory-quotation-portal --update-env
 
--- Create index for better performance
-CREATE INDEX idx_payments_bank_account_id ON payments(bank_account_id);
+
+Problem:
+502 Bad Gateway.
+
+Fix:
+
+sudo -u deploy pm2 status
+
+sudo -u deploy pm2 logs inventory-quotation-portal --lines 100
+
+curl -I http://127.0.0.1:3000/auth/signin
+
+systemctl status nginx
+
+
+Problem:
+npm ci fails with ENOTEMPTY.
+
+Fix:
+
+sudo -u deploy bash -lc 'cd /var/www/inventory-quotation-portal && rm -rf node_modules && npm ci'
+
+
+Problem:
+Login fails after domain change.
+
+Fix:
+Make sure NEXTAUTH_URL exactly matches the public URL:
+
+NEXTAUTH_URL=https://yourdomain.com
+
+Then:
+
+sudo -u deploy pm2 restart inventory-quotation-portal --update-env
+
+
+Problem:
+Username login does not work for old users.
+
+Fix:
+
+sudo -u deploy bash -lc 'cd /var/www/inventory-quotation-portal && npm run db:migrate'
+
+Then inspect:
+
+mongosh inventory_portal --quiet --eval 'db.users.find({}, {email:1, username:1}).forEach(printjson)'
+
+
+============================================================
+28. SAFE UPDATE FLOW
+============================================================
+
+1. Push code to GitHub main.
+2. Watch GitHub Actions.
+3. If Actions passes, verify server:
+
+curl -I http://187.53.139.52/auth/signin
+
+sudo -u deploy pm2 status
+
+4. If needed, check logs:
+
+sudo -u deploy pm2 logs inventory-quotation-portal --lines 100
