@@ -19,6 +19,10 @@ async function setupDatabase() {
 
     // Create indexes (see lib/db-indexes.ts and scripts/ensure-indexes.js)
     await db.collection("users").createIndex({ email: 1 }, { unique: true })
+    await db.collection("users").createIndex(
+      { username: 1 },
+      { unique: true, partialFilterExpression: { username: { $type: "string" } } }
+    )
     await db.collection("products").createIndex({ productId: 1 }, { unique: true })
     await db.collection("products").createIndex({ isOutOfStock: 1, productId: -1 })
     await db.collection("products").createIndex({ departmentId: 1 }, { sparse: true })
@@ -40,6 +44,7 @@ async function setupDatabase() {
     await db.collection("users").insertOne({
       name: "Admin User",
       email: "admin@inventory.com",
+      username: "admin",
       password: hashedPassword,
       role: "manager",
       contact: "+1234567890",
@@ -52,6 +57,7 @@ async function setupDatabase() {
     await db.collection("users").insertOne({
       name: "John Rider",
       email: "rider@inventory.com",
+      username: "rider",
       password: riderPassword,
       role: "rider",
       contact: "+1234567891",

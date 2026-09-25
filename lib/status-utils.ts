@@ -4,6 +4,7 @@ export interface UserStatus {
   _id: string
   name: string
   email: string
+  username?: string
   role: string
   contact?: string
   createdAt: string
@@ -52,4 +53,3 @@ export function getLastSeenText(lastSeen: string | Date | null) {
   if (diffHours < 24) return `${diffHours}h ago`
   return `${diffDays}d ago`
 }
-

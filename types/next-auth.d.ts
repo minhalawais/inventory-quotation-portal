@@ -3,6 +3,7 @@ declare module "next-auth" {
     user: {
       id: string
       email: string
+      username: string
       name: string
       role: string
       allowedIps: string[]
@@ -13,8 +14,10 @@ declare module "next-auth" {
   interface User {
     id: string
     email: string
+    username: string
     name: string
     role: string
+    username: string
     allowedIps: string[]
     status: string
   }

@@ -122,6 +122,7 @@ export default function UserList() {
         body: JSON.stringify({
           name: selectedUser.name,
           email: selectedUser.email,
+          username: selectedUser.username,
           role: selectedUser.role,
           contact: selectedUser.contact,
           allowedIps: newIPs,
@@ -211,7 +212,10 @@ export default function UserList() {
               <TableCell>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-foreground">{user.name}</p>
-                  <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {user.username ? `@${user.username} · ` : ""}
+                    {user.email}
+                  </p>
                 </div>
               </TableCell>
               <TableCell>
@@ -296,7 +300,10 @@ export default function UserList() {
         <div className="flex items-start justify-between gap-2">
           <button type="button" onClick={() => setDetailUser(user)} className="min-w-0 text-left">
             <p className="truncate text-sm font-medium text-foreground">{user.name}</p>
-            <p className="mt-0.5 truncate text-xs text-muted-foreground">{user.email}</p>
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">
+              {user.username ? `@${user.username} · ` : ""}
+              {user.email}
+            </p>
           </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -375,11 +382,18 @@ export default function UserList() {
             <>
               <SheetHeader>
                 <SheetTitle className="pr-6 text-left text-base">{detailUser.name}</SheetTitle>
-                <SheetDescription className="text-left">{detailUser.email}</SheetDescription>
+                <SheetDescription className="text-left">
+                  {detailUser.username ? `@${detailUser.username} · ` : ""}
+                  {detailUser.email}
+                </SheetDescription>
               </SheetHeader>
 
               <div className="mt-6 space-y-5 text-sm">
                 <dl className="space-y-3">
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-muted-foreground">Username</dt>
+                    <dd className="font-medium">{detailUser.username ? `@${detailUser.username}` : "—"}</dd>
+                  </div>
                   <div className="flex justify-between gap-3">
                     <dt className="text-muted-foreground">Role</dt>
                     <dd className="font-medium">{ROLE_LABELS[detailUser.role] ?? detailUser.role}</dd>

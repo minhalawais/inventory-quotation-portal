@@ -76,6 +76,7 @@ async function main() {
 
   console.log("users:")
   await explain(db, "login by email", "users", "find", { email: "admin@inventory.com" })
+  await explain(db, "login by username", "users", "find", { username: "admin" })
 
   console.log("\nproducts:")
   await explain(db, "list in-stock sorted by productId", "products", "find", { isOutOfStock: { $ne: true } }, { sort: { productId: -1 } })

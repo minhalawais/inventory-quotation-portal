@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth"
 import clientPromise from "@/lib/mongodb"
 import { ObjectId } from "mongodb"
 import bcrypt from "bcryptjs"
+import { isValidUsername, normalizeEmail, normalizeUsername, usernameRulesText } from "@/lib/usernames"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -20,6 +21,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       _id: 1,
       name: 1,
       email: 1,
+      username: 1,
       role: 1,
       lastSeen: 1,
       isOnline: 1,
@@ -48,15 +50,37 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     const body = await request.json()
-    const { name, email, role, contact, password, allowedIps, status } = body
+    const { name, role, contact, password, allowedIps, status } = body
+    const email = normalizeEmail(body.email)
+    const username = normalizeUsername(body.username)
+
+    if (!name?.trim() || !email || !username || !role) {
+      return NextResponse.json({ error: "Name, email, username, and role are required." }, { status: 400 })
+    }
+
+    if (!isValidUsername(username)) {
+      return NextResponse.json({ error: usernameRulesText() }, { status: 400 })
+    }
 
     const client = await clientPromise
     const db = client.db("inventory_portal")
     const users = db.collection("users")
 
+    const userId = new ObjectId(params.id)
+    const existing = await users.findOne({
+      _id: { $ne: userId },
+      $or: [{ email }, { username }],
+    })
+
+    if (existing) {
+      const field = existing.email === email ? "email" : "username"
+      return NextResponse.json({ error: `A user with that ${field} already exists.` }, { status: 409 })
+    }
+
     const updateData: any = {
-      name,
+      name: name.trim(),
       email,
+      username,
       role,
       contact,
       updatedAt: new Date(),
@@ -74,7 +98,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       updateData.password = await bcrypt.hash(password, 12)
     }
 
-    const result = await users.updateOne({ _id: new ObjectId(params.id) }, { $set: updateData })
+    const result = await users.updateOne({ _id: userId }, { $set: updateData })
 
     if (result.matchedCount === 0) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })

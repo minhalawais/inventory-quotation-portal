@@ -16,6 +16,7 @@ import { FormSection, FormActions } from "@/components/shared/form-section"
 import { Panel, PanelBody } from "@/components/shared/panel"
 import { Skeleton } from "@/components/ui/skeleton"
 import IPAddressManager from "./ip-address-manager"
+import { usernameRulesText } from "@/lib/usernames"
 
 interface EditUserFormProps {
   userId: string
@@ -43,6 +44,7 @@ export default function EditUserForm({ userId }: EditUserFormProps) {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
+    username: "",
     role: "",
     contact: "",
     password: "",
@@ -70,6 +72,7 @@ export default function EditUserForm({ userId }: EditUserFormProps) {
         setFormData({
           name: user.name,
           email: user.email,
+          username: user.username || "",
           role: user.role,
           contact: user.contact || "",
           password: "",
@@ -114,6 +117,7 @@ export default function EditUserForm({ userId }: EditUserFormProps) {
       const updateData: any = {
         name: formData.name,
         email: formData.email,
+        username: formData.username,
         role: formData.role,
         contact: formData.contact,
         allowedIps: formData.allowedIps,
@@ -199,7 +203,7 @@ export default function EditUserForm({ userId }: EditUserFormProps) {
     <form onSubmit={handleSubmit} className="mx-auto max-w-[840px]">
       <Panel>
         <PanelBody className="space-y-0">
-          <FormSection title="Account profile" description="Name and sign-in email.">
+          <FormSection title="Account profile" description="Name, username, and sign-in email.">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="name">Full name</Label>
@@ -211,6 +215,21 @@ export default function EditUserForm({ userId }: EditUserFormProps) {
                   className="h-10"
                   placeholder="Full name"
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  value={formData.username}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  required
+                  className="h-10"
+                  placeholder="e.g. saleem.khan"
+                  autoComplete="username"
+                  pattern="[A-Za-z0-9][A-Za-z0-9._-]{2,31}"
+                  title={usernameRulesText()}
+                />
+                <p className="text-xs text-muted-foreground">{usernameRulesText()}</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>

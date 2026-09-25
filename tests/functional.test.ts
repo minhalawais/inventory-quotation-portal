@@ -6,6 +6,7 @@ import { isIPAllowed, isValidIP } from "@/lib/ip-utils"
 import { formatPhoneForWhatsApp } from "@/lib/phone-utils"
 import { classifyProduct, formatClassification } from "@/lib/product-classification"
 import { collectProductImages } from "@/lib/product-images"
+import { baseUsernameFromEmail, isValidUsername, normalizeEmail, normalizeUsername } from "@/lib/usernames"
 import {
   asId,
   groupQuoteItems,
@@ -330,6 +331,16 @@ test("WhatsApp and IP helpers", () => {
   assert.equal(isIPAllowed("10.0.0.8", ["*"]), true)
   assert.equal(isIPAllowed("10.0.0.8", ["10.0.0.0/24"]), true)
   assert.equal(isIPAllowed("10.0.1.8", ["10.0.0.0/24"]), false)
+})
+
+test("username helpers normalize and validate login identifiers", () => {
+  assert.equal(normalizeEmail(" Admin@Inventory.COM "), "admin@inventory.com")
+  assert.equal(normalizeUsername(" Saleem.Khan "), "saleem.khan")
+  assert.equal(isValidUsername("saleem.khan"), true)
+  assert.equal(isValidUsername("sa"), false)
+  assert.equal(isValidUsername("-saleem"), false)
+  assert.equal(baseUsernameFromEmail("p_manager@gmail.com"), "p_manager")
+  assert.equal(baseUsernameFromEmail("a@example.com"), "a001")
 })
 
 test("quotation PDF builds in memory without a database", async () => {

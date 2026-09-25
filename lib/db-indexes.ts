@@ -11,6 +11,13 @@ export async function ensureDatabaseIndexes(db: Db) {
 
   await Promise.all([
     db.collection("users").createIndex({ email: 1 }, { unique: true }),
+    db.collection("users").createIndex(
+      { username: 1 },
+      {
+        unique: true,
+        partialFilterExpression: { username: { $type: "string" } },
+      },
+    ),
 
     db.collection("products").createIndex({ productId: 1 }, { unique: true }),
     db.collection("products").createIndex({ isOutOfStock: 1, productId: -1 }),

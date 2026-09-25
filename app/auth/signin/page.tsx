@@ -15,13 +15,13 @@ import { Label } from "@/components/ui/label"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 const developmentAccounts = [
-  { type: "manager" as const, label: "Manager", email: "admin@inventory.com", password: "admin123" },
-  { type: "rider" as const, label: "Rider", email: "rider@inventory.com", password: "rider123" },
-  { type: "product_manager" as const, label: "Product manager", email: "p_manager@gmail.com", password: "password123" },
+  { type: "manager" as const, label: "Manager", login: "admin", password: "admin123" },
+  { type: "rider" as const, label: "Rider", login: "rider", password: "rider123" },
+  { type: "product_manager" as const, label: "Product manager", login: "p_manager", password: "password123" },
 ]
 
 export default function SignIn() {
-  const [email, setEmail] = useState("")
+  const [login, setLogin] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
@@ -37,9 +37,9 @@ export default function SignIn() {
     setSuccess(false)
 
     try {
-      const result = await signIn("credentials", { email, password, redirect: false })
+      const result = await signIn("credentials", { login, password, redirect: false })
       if (result?.error) {
-        setError("The email or password is incorrect.")
+        setError("The username, email, or password is incorrect.")
         setLoading(false)
         return
       }
@@ -56,7 +56,7 @@ export default function SignIn() {
   }
 
   const fillDevelopmentCredentials = (account: (typeof developmentAccounts)[number]) => {
-    setEmail(account.email)
+    setLogin(account.login)
     setPassword(account.password)
   }
 
@@ -114,14 +114,14 @@ export default function SignIn() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="email">Email address</Label>
+              <Label htmlFor="login">Username or Email</Label>
               <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="name@kksports.com.pk"
-                autoComplete="email"
+                id="login"
+                type="text"
+                value={login}
+                onChange={(event) => setLogin(event.target.value)}
+                placeholder="username or name@kksports.com.pk"
+                autoComplete="username"
                 required
                 disabled={loading}
                 aria-invalid={Boolean(error)}

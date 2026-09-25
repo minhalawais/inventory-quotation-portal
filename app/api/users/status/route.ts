@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
             _id: 1,
             name: 1,
             email: 1,
+            username: 1,
             role: 1,
             lastSeen: 1,
             isOnline: 1,

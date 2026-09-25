@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import clientPromise from "@/lib/mongodb"
 import bcrypt from "bcryptjs"
+import { isValidUsername, normalizeEmail, normalizeUsername, usernameRulesText } from "@/lib/usernames"
 
 export async function GET() {
   try {
@@ -19,6 +20,7 @@ export async function GET() {
       _id: 1,
       name: 1,
       email: 1,
+      username: 1,
       role: 1,
       lastSeen: 1,
       isOnline: 1,
@@ -44,7 +46,17 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, email, password, role, contact, allowedIps = ["*"] } = body
+    const { name, password, role, contact, allowedIps = ["*"] } = body
+    const email = normalizeEmail(body.email)
+    const username = normalizeUsername(body.username)
+
+    if (!name?.trim() || !email || !username || !password || !role) {
+      return NextResponse.json({ error: "Name, email, username, password, and role are required." }, { status: 400 })
+    }
+
+    if (!isValidUsername(username)) {
+      return NextResponse.json({ error: usernameRulesText() }, { status: 400 })
+    }
 
     const hashedPassword = await bcrypt.hash(password, 12)
 
@@ -52,9 +64,19 @@ export async function POST(request: NextRequest) {
     const db = client.db("inventory_portal")
     const users = db.collection("users")
 
+    const existing = await users.findOne({
+      $or: [{ email }, { username }],
+    })
+
+    if (existing) {
+      const field = existing.email === email ? "email" : "username"
+      return NextResponse.json({ error: `A user with that ${field} already exists.` }, { status: 409 })
+    }
+
     const result = await users.insertOne({
-      name,
+      name: name.trim(),
       email,
+      username,
       password: hashedPassword,
       role,
       contact,
