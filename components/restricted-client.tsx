@@ -4,6 +4,7 @@ import { signOut } from "next-auth/react"
 import { LogOut, RefreshCw } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { getSignInUrl } from "@/lib/auth-redirects"
 
 export function RestrictedActions() {
   return (
@@ -12,7 +13,7 @@ export function RestrictedActions() {
         <RefreshCw className="h-4 w-4" />
         Try again
       </Button>
-      <Button type="button" onClick={() => signOut({ callbackUrl: "/auth/signin" })} variant="outline" className="flex-1">
+      <Button type="button" onClick={() => signOut({ callbackUrl: getSignInUrl() })} variant="outline" className="flex-1">
         <LogOut className="h-4 w-4" />
         Sign out
       </Button>

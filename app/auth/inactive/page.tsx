@@ -5,6 +5,7 @@ import { ShieldOff } from "lucide-react"
 
 import { SystemStatePage } from "@/components/system-state-page"
 import { Button } from "@/components/ui/button"
+import { getSignInUrl } from "@/lib/auth-redirects"
 
 export default function InactivePage() {
   return (
@@ -15,7 +16,7 @@ export default function InactivePage() {
       description="This account has been deactivated by an administrator. Contact your KK Sports administrator to restore access."
       footer="KK Sports Operations - authorized access only"
     >
-      <Button onClick={() => signOut({ callbackUrl: "/auth/signin" })} className="w-full">
+      <Button onClick={() => signOut({ callbackUrl: getSignInUrl() })} className="w-full">
         Return to sign in
       </Button>
     </SystemStatePage>

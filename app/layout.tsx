@@ -47,6 +47,24 @@ export const viewport: Viewport = {
   themeColor: "#030201",
 }
 
+function PoweredByFooter() {
+  return (
+    <footer className="fixed inset-x-0 bottom-0 z-50 flex min-h-5 items-center justify-center border-t border-black/10 bg-white/90 px-3 py-0.5 text-[10px] font-medium leading-none text-muted-foreground shadow-[0_-3px_12px_rgba(15,23,42,0.06)] backdrop-blur-md">
+      <span>
+        Powered by{" "}
+        <a
+          href="https://www.xoltech.com/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-semibold uppercase tracking-[0.08em] text-[hsl(var(--kk-gold-hover))] transition-colors hover:text-[hsl(var(--kk-gold))] hover:underline hover:underline-offset-4"
+        >
+          XOLTECH
+        </a>
+      </span>
+    </footer>
+  )
+}
+
 export default function RootLayout({
   children,
 }: {
@@ -66,6 +84,7 @@ export default function RootLayout({
         <Providers>
           <AppLayout>{children}</AppLayout>
         </Providers>
+        <PoweredByFooter />
       </body>
     </html>
   )

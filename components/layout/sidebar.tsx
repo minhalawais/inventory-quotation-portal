@@ -9,6 +9,7 @@ import { Activity, FileText, LayoutDashboard, LogOut, Package, PackageX, Users, 
 import { BrandMark } from "@/components/brand-mark"
 import { Button } from "@/components/ui/button"
 import { useHeartbeat } from "@/hooks/use-heartbeat"
+import { getSignInUrl } from "@/lib/auth-redirects"
 import { cn } from "@/lib/utils"
 
 const navigation = [
@@ -134,7 +135,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
           </div>
           <button
             type="button"
-            onClick={() => signOut({ callbackUrl: "/auth/signin" })}
+            onClick={() => signOut({ callbackUrl: getSignInUrl() })}
             className="flex h-10 w-full items-center gap-3 rounded-md px-3 text-sm font-medium text-white/55 transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
           >
             <LogOut className="h-4 w-4 text-white/40" />

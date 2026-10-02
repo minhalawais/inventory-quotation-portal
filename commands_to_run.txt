@@ -1,3 +1,16 @@
+cd /var/www/inventory-quotation-portal
+sudo -u deploy git fetch --prune origin main
+sudo -u deploy git checkout main
+sudo -u deploy git reset --hard origin/main
+sudo -u deploy rm -rf node_modules
+sudo -u deploy npm ci
+sudo -u deploy npm run build
+sudo -u deploy npm run db:migrate
+sudo -u deploy pm2 reload inventory-quotation-portal --update-env
+sudo -u deploy pm2 save
+sudo -u deploy pm2 status
+curl -I http://127.0.0.1:3000/auth/signin
+sudo -u deploy bash -lc 'cd /var/www/inventory-quotation-portal && git fetch --prune origin main && git checkout main && git reset --hard origin/main && rm -rf node_modules && npm ci && npm run build && npm run db:migrate && pm2 reload inventory-quotation-portal --update-env && pm2 save'
 # Inventory Quotation Portal - VPS Maintenance Commands
 
 Server IP:
@@ -494,3 +507,301 @@ sudo -u deploy pm2 status
 4. If needed, check logs:
 
 sudo -u deploy pm2 logs inventory-quotation-portal --lines 100
+
+
+============================================================
+29. ADD DOMAIN: kksportsb2b.com  (COMPLETE END-TO-END STEPS)
+============================================================
+
+SERVER IP  : 187.53.139.52
+DOMAIN     : kksportsb2b.com
+WWW DOMAIN : www.kksportsb2b.com
+APP DIR    : /var/www/inventory-quotation-portal
+
+
+------------------------------------------------------------
+STEP 1 — ADD DNS RECORDS  (at your domain registrar / DNS provider)
+------------------------------------------------------------
+
+Add the following two A records in your DNS control panel:
+
+  Type: A  |  Name: @    |  Value: 187.53.139.52  |  TTL: 300 (or Auto)
+  Type: A  |  Name: www  |  Value: 187.53.139.52  |  TTL: 300 (or Auto)
+
+Wait for DNS propagation (typically 5–30 minutes).
+
+Verify propagation before proceeding:
+
+  nslookup kksportsb2b.com 8.8.8.8
+  nslookup www.kksportsb2b.com 8.8.8.8
+
+Both should return 187.53.139.52.
+
+Online check (from local machine):
+  curl -I http://kksportsb2b.com
+
+
+------------------------------------------------------------
+STEP 2 — SSH INTO SERVER
+------------------------------------------------------------
+
+ssh -i "C:\Users\Mg\.ssh\inventory_portal_github_actions" deploy@187.53.139.52
+
+
+------------------------------------------------------------
+STEP 3 — UPDATE NGINX SITE CONFIG
+------------------------------------------------------------
+
+Open the config file:
+
+  sudo nano /etc/nginx/sites-available/inventory-quotation-portal
+
+Replace the existing server block with this full config
+(handles both bare domain and www, and prepares for SSL):
+
+----- PASTE THIS ENTIRE BLOCK -----
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name kksportsb2b.com www.kksportsb2b.com;
+
+    client_max_body_size 25m;
+
+    # Certbot challenge path (used in Step 4)
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 60s;
+        proxy_connect_timeout 10s;
+    }
+}
+
+-----------------------------------
+
+Test and reload Nginx:
+
+  nginx -t && systemctl reload nginx
+
+
+------------------------------------------------------------
+STEP 4 — INSTALL SSL CERTIFICATE WITH CERTBOT
+------------------------------------------------------------
+
+Install certbot if not already installed:
+
+  apt install -y certbot python3-certbot-nginx
+
+Issue the certificate:
+
+  certbot --nginx -d kksportsb2b.com -d www.kksportsb2b.com
+
+Certbot will:
+  1. Verify domain ownership (HTTP challenge).
+  2. Obtain a Let's Encrypt certificate.
+  3. Automatically update the Nginx config with HTTPS.
+
+Test auto-renewal:
+
+  certbot renew --dry-run
+
+After certbot finishes, verify the new Nginx config looks correct:
+
+  cat /etc/nginx/sites-available/inventory-quotation-portal
+
+The config should now contain two server blocks:
+  - Port 80  → redirects to https://kksportsb2b.com
+  - Port 443 → proxies to http://127.0.0.1:3000 with SSL certs
+
+Reload Nginx one more time to be safe:
+
+  nginx -t && systemctl reload nginx
+
+
+------------------------------------------------------------
+STEP 5 — UPDATE APP ENVIRONMENT
+------------------------------------------------------------
+
+Edit .env.local on the server:
+
+  sudo -u deploy nano /var/www/inventory-quotation-portal/.env.local
+
+Change NEXTAUTH_URL from the IP to the domain:
+
+  NEXTAUTH_URL=https://kksportsb2b.com
+
+Also confirm these lines exist and are correct:
+
+  MONGODB_URI=mongodb://127.0.0.1:27017/inventory_portal
+  NEXTAUTH_SECRET=<your-long-random-secret>
+
+Save and exit (Ctrl+O, Enter, Ctrl+X).
+
+Verify the change:
+
+  sudo -u deploy bash -lc 'cd /var/www/inventory-quotation-portal && grep NEXTAUTH_URL .env.local'
+
+
+------------------------------------------------------------
+STEP 6 — RESTART THE APP
+------------------------------------------------------------
+
+  sudo -u deploy pm2 restart inventory-quotation-portal --update-env
+  sudo -u deploy pm2 save
+  sudo -u deploy pm2 status
+
+Wait ~10 seconds, then confirm app is listening:
+
+  curl -I http://127.0.0.1:3000/auth/signin
+
+
+------------------------------------------------------------
+STEP 7 — SMOKE TEST (VERIFY EVERYTHING WORKS)
+------------------------------------------------------------
+
+Test HTTP redirect to HTTPS:
+
+  curl -I http://kksportsb2b.com
+  # Expected: HTTP/1.1 301 Moved Permanently  →  Location: https://kksportsb2b.com/...
+
+Test HTTPS response:
+
+  curl -I https://kksportsb2b.com
+  # Expected: HTTP/2 200  (or 302 redirect to /auth/signin)
+
+Test www redirect:
+
+  curl -I https://www.kksportsb2b.com
+  # Expected: 301 redirect to https://kksportsb2b.com
+
+Open in browser:
+
+  https://kksportsb2b.com/auth/signin
+
+Check SSL certificate:
+
+  echo | openssl s_client -connect kksportsb2b.com:443 -servername kksportsb2b.com 2>/dev/null | openssl x509 -noout -dates -subject
+
+Check PM2 logs for errors:
+
+  sudo -u deploy pm2 logs inventory-quotation-portal --lines 50
+
+
+------------------------------------------------------------
+STEP 8 — ENFORCE WWW → NON-WWW REDIRECT (OPTIONAL BUT CLEAN)
+------------------------------------------------------------
+
+If you want www.kksportsb2b.com to always redirect to kksportsb2b.com,
+replace the Nginx config after certbot with this final form:
+
+  sudo nano /etc/nginx/sites-available/inventory-quotation-portal
+
+----- FINAL CONFIG (after SSL) -----
+
+# Redirect HTTP to HTTPS
+server {
+    listen 80;
+    listen [::]:80;
+    server_name kksportsb2b.com www.kksportsb2b.com;
+    return 301 https://kksportsb2b.com$request_uri;
+}
+
+# Redirect www to non-www (HTTPS)
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name www.kksportsb2b.com;
+
+    ssl_certificate     /etc/letsencrypt/live/kksportsb2b.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/kksportsb2b.com/privkey.pem;
+    include             /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam         /etc/letsencrypt/ssl-dhparams.pem;
+
+    return 301 https://kksportsb2b.com$request_uri;
+}
+
+# Main HTTPS block
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name kksportsb2b.com;
+
+    ssl_certificate     /etc/letsencrypt/live/kksportsb2b.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/kksportsb2b.com/privkey.pem;
+    include             /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam         /etc/letsencrypt/ssl-dhparams.pem;
+
+    client_max_body_size 25m;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 60s;
+        proxy_connect_timeout 10s;
+    }
+}
+
+-----------------------------------
+
+  nginx -t && systemctl reload nginx
+
+
+------------------------------------------------------------
+STEP 9 — UPDATE GITHUB ACTIONS SECRET (CI/CD)
+------------------------------------------------------------
+
+In GitHub → Settings → Secrets and variables → Actions:
+
+  Update:  VPS_HOST=187.53.139.52  (no change needed, keep as-is)
+
+If your workflow sets NEXTAUTH_URL, update it there too:
+
+  NEXTAUTH_URL=https://kksportsb2b.com
+
+
+------------------------------------------------------------
+STEP 10 — CERTBOT AUTO-RENEWAL CRON (VERIFY IT EXISTS)
+------------------------------------------------------------
+
+Certbot installs a cron/systemd timer automatically. Verify:
+
+  systemctl status certbot.timer
+  # or:
+  crontab -l | grep certbot
+
+If missing, add it manually:
+
+  echo "0 3 * * * root certbot renew --quiet --nginx && systemctl reload nginx" >> /etc/cron.d/certbot
+
+
+------------------------------------------------------------
+QUICK ONE-LINER REFERENCE
+------------------------------------------------------------
+
+# Full domain switch (run after DNS propagates):
+sudo nano /etc/nginx/sites-available/inventory-quotation-portal   # update server_name
+nginx -t && systemctl reload nginx
+certbot --nginx -d kksportsb2b.com -d www.kksportsb2b.com
+sudo -u deploy nano /var/www/inventory-quotation-portal/.env.local  # set NEXTAUTH_URL=https://kksportsb2b.com
+sudo -u deploy pm2 restart inventory-quotation-portal --update-env
+sudo -u deploy pm2 save
+curl -I https://kksportsb2b.com
+

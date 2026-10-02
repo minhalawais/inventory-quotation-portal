@@ -7,6 +7,7 @@ import { ChevronDown, LogOut, Menu, UserRound } from "lucide-react"
 
 import IPStatusIndicator from "@/components/ip-status-indicator"
 import { Button } from "@/components/ui/button"
+import { getSignInUrl } from "@/lib/auth-redirects"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -111,7 +112,7 @@ export default function Header({ onMenuClick }: { onMenuClick: () => void }) {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => signOut({ callbackUrl: "/auth/signin" })} className="text-red-700 focus:text-red-700">
+              <DropdownMenuItem onSelect={() => signOut({ callbackUrl: getSignInUrl() })} className="text-red-700 focus:text-red-700">
                 <LogOut className="mr-2 h-4 w-4" />
                 Sign out
               </DropdownMenuItem>
